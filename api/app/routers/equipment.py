@@ -338,3 +338,34 @@ async def update_atelier_fiche(
 
     cr = await db.execute(text("SELECT name FROM clients WHERE id=:id"), {"id": str(eq.client_id)})
     return _atelier_combined(eq, interv, cr.scalar_one_or_none() or "")
+
+
+@atelier_router.delete("/{interv_id}", response_model=dict)
+async def delete_atelier_fiche(
+    interv_id       : UUID,
+    delete_planning : bool         = False,
+    db              : AsyncSession = Depends(get_db),
+    _               : User         = Depends(get_current_user),
+):
+    """Supprime une fiche atelier. ?delete_planning=true supprime aussi les slots liés."""
+    result = await db.execute(
+        select(WorkshopIntervention).where(WorkshopIntervention.id == interv_id)
+    )
+    interv = result.scalar_one_or_none()
+    if not interv:
+        raise HTTPException(status_code=404, detail="Fiche introuvable")
+
+    if delete_planning:
+        from ..models.planning import PlanningSlot
+        slots = await db.execute(
+            select(PlanningSlot).where(
+                PlanningSlot.context_type == "atelier",
+                PlanningSlot.context_id == interv_id,
+            )
+        )
+        for slot in slots.scalars().all():
+            await db.delete(slot)
+
+    await db.delete(interv)
+    await db.flush()
+    return {"deleted": True}
