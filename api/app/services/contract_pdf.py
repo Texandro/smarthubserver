@@ -330,11 +330,14 @@ def _generate_cloud_lm(data: dict) -> bytes:
         "Les missions confiées au prestataire comprennent notamment :", "body"))
     for m in data.get("missions", []):
         story.append(bullet_item(m))
+    story.append(bullet_item(
+        "Support technique de base lié à l'infrastructure "
+        "(accès, disponibilité, incidents)."))
 
     story.append(sp(4))
     story.append(subsection("3.2 Prestations exclues"))
     default_excl = [
-        "Support utilisateur final (Office/Outlook/Teams, usage applicatif).",
+        "Support utilisateur avancé (usage applicatif, formation, assistance bureautique).",
         "Installation et maintenance des postes de travail (contrat séparé).",
         "Interventions sur site chez le client (sauf accord préalable, devis séparé).",
         "Projets/migrations non expressément convenus (devis/bon de commande).",
@@ -369,11 +372,15 @@ def _generate_cloud_lm(data: dict) -> bytes:
         "engagements de résultat. Ils peuvent être impactés par la charge de "
         "travail, les contraintes techniques et les dépendances fournisseurs "
         "(Microsoft, OVH, opérateurs Internet).", "body"))
+    story.append(para(
+        "Le prestataire privilégie une approche pragmatique et adaptée aux "
+        "contraintes métier du client, notamment dans les périodes critiques.",
+        "body"))
 
-    # §4.4 Priorité TVA (conditionnel)
+    # §4.4 Priorité périodes fiscales (conditionnel)
     if data.get("priorite_tva"):
         story.append(sp(4))
-        story.append(subsection("4.4 Priorité – Périodes TVA (clients comptables)"))
+        story.append(subsection("4.4 Priorité – Périodes fiscales (clients comptables)"))
         story.append(para(
             "Pour les clients dont l'activité est liée à des obligations fiscales "
             "périodiques (notamment déclarations TVA), le prestataire adapte ses "
@@ -429,6 +436,10 @@ def _generate_cloud_lm(data: dict) -> bytes:
         "Toutefois, le prestataire ne peut garantir la récupération intégrale des "
         "données en toutes circonstances, la restauration dépendant de l'état des "
         "supports et de la nature de l'incident.", "body"))
+    story.append(para(
+        "Les besoins spécifiques du client en matière de rétention ou de stratégie "
+        "de sauvegarde peuvent faire l'objet d'une adaptation contractuelle.",
+        "body"))
 
     # ═══════════════════════════════════════════════════════════════════════
     # §7 HONORAIRES

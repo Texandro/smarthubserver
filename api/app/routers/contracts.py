@@ -256,15 +256,35 @@ async def update_contract(
 
 @router.delete("/{contract_id}", status_code=204)
 async def delete_contract(
-    contract_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_owner),
+    contract_id  : UUID,
+    delete_files : bool         = False,
+    db           : AsyncSession = Depends(get_db),
+    _            : User         = Depends(require_owner),
 ):
-    """Supprime un contrat et ses items (cascade)."""
+    """Supprime un contrat et ses items (cascade).
+    ?delete_files=true supprime aussi les fichiers liés sur le NAS."""
     result = await db.execute(select(Contract).where(Contract.id == contract_id))
     contract = result.scalar_one_or_none()
     if not contract:
         raise HTTPException(status_code=404, detail="Contrat introuvable")
+
+    if delete_files and contract.reference:
+        import os, re
+        from pathlib import Path
+        cr = await db.execute(select(Client).where(Client.id == contract.client_id))
+        client = cr.scalar_one_or_none()
+        if client:
+            NAS_BASE = Path(os.getenv("NAS_BASE_PATH", "/mnt/nas/smarthub/Clients"))
+            safe = re.sub(r'[<>:"/\\|?*]', '-', client.name).strip('. ')[:80]
+            client_dir = NAS_BASE / safe
+            if client_dir.exists():
+                for folder in client_dir.rglob("*"):
+                    if folder.is_file() and contract.reference.lower() in folder.name.lower():
+                        try:
+                            folder.unlink()
+                        except OSError:
+                            pass
+
     await db.delete(contract)
     await db.flush()
 
