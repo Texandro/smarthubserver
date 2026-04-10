@@ -19,6 +19,26 @@ from ..auth import get_current_user
 
 router = APIRouter(prefix="/timetrack", tags=["timetrack"])
 
+# Ratio au-delà duquel un slot planning est considéré "overrun"
+PLANNING_OVERRUN_RATIO = 1.15
+
+
+async def _sync_planning_slot_after_stop(db: AsyncSession, session: TimeSession) -> None:
+    """Si la session est liée à un planning_slot, met à jour actual_* + status."""
+    if not getattr(session, "planning_slot_id", None) or not session.ended_at:
+        return
+    from ..models.planning import PlanningSlot
+    r = await db.execute(select(PlanningSlot).where(PlanningSlot.id == session.planning_slot_id))
+    slot = r.scalar_one_or_none()
+    if not slot:
+        return
+    started = session.started_at if session.started_at.tzinfo else session.started_at.replace(tzinfo=timezone.utc)
+    ended   = session.ended_at   if session.ended_at.tzinfo   else session.ended_at.replace(tzinfo=timezone.utc)
+    actual_min = max(0, int((ended - started).total_seconds() / 60))
+    slot.actual_session_id   = session.id
+    slot.actual_duration_min = actual_min
+    slot.status = "overrun" if actual_min > slot.duration_min * PLANNING_OVERRUN_RATIO else "done"
+
 
 def _session_dict(s: TimeSession, client_name: str = "", contract_ref: str = "") -> dict:
     # Calculer duration_minutes et amount en Python (colonnes GENERATED ALWAYS AS non chargées par l'ORM)
@@ -128,6 +148,7 @@ async def start_session(
     # Nettoyer TOUS les champs inconnus du modèle TimeSession
     ALLOWED = {
         "client_id", "site_id", "contract_id", "project_id",
+        "planning_slot_id",
         "activity", "description", "started_at",
         "is_billable", "is_included_in_contract",
         "hourly_rate_applied", "tags",
@@ -197,6 +218,7 @@ async def stop_active_session(
         )
         db.add(report)
 
+    await _sync_planning_slot_after_stop(db, session)
 
     await db.flush()
     await db.refresh(session)
@@ -237,6 +259,7 @@ async def stop_session_by_id(
         )
         db.add(report)
 
+    await _sync_planning_slot_after_stop(db, session)
 
     await db.flush()
     await db.refresh(session)

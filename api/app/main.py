@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .core.database import Base, engine
 from .core.config import get_settings
-from .routers import auth, clients, timetrack, contracts, projects, equipment, forensics, interventions, dashboard
+from .routers import auth, clients, timetrack, contracts, projects, equipment, forensics, interventions, dashboard, planning
 from .routers.equipment import atelier_router
 from .routers.nas import router as nas_router
 from .routers.documents import router as documents_router
@@ -54,6 +54,7 @@ PREFIX = "/api/v1"
 app.include_router(auth.router,          prefix=PREFIX)
 app.include_router(clients.router,       prefix=PREFIX)
 app.include_router(timetrack.router,     prefix=PREFIX)
+app.include_router(planning.router,      prefix=PREFIX)
 app.include_router(contracts.router,     prefix=PREFIX)
 app.include_router(projects.router,      prefix=PREFIX)
 app.include_router(equipment.router,     prefix=PREFIX)

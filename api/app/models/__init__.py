@@ -6,6 +6,7 @@ from .equipment    import Equipment, WorkshopIntervention
 from .forensics    import ForensicsCase, ForensicsEvidence
 from .timetrack    import TimeSession, SessionReport
 from .intervention import OnSiteIntervention
+from .planning     import PlanningSlot, RecurrenceRule
 from .asbuilt      import (
     AsbuiltDocument, AsbuiltHistory,
     InfraServer, InfraVpnLink,
@@ -26,6 +27,7 @@ __all__ = [
     "ForensicsCase", "ForensicsEvidence",
     "TimeSession", "SessionReport",
     "OnSiteIntervention",
+    "PlanningSlot", "RecurrenceRule",
     "AsbuiltDocument", "AsbuiltHistory",
     "InfraServer", "InfraVpnLink",
     "StackDockerContainer", "StackSystemService", "StackDeployedScript",

@@ -36,8 +36,12 @@ if [ "$DB_HAS_DATA" -gt "5" ]; then
     echo "⚠️  Base de données existante détectée ($DB_HAS_DATA tables)."
     echo "   → Application de la migration 002 (auth + interventions)..."
     docker exec -i smarthub-db psql -U smarthub -d smarthub < /srv/smarthub/db/002_auth_and_interventions.sql \
-        2>/dev/null && echo "   ✅ Migration appliquée" \
-        || echo "   ℹ️  Migration déjà appliquée ou erreur ignorée"
+        2>/dev/null && echo "   ✅ Migration 002 appliquée" \
+        || echo "   ℹ️  Migration 002 déjà appliquée ou erreur ignorée"
+    echo "   → Application de la migration 003 (planning)..."
+    docker exec -i smarthub-db psql -U smarthub -d smarthub < /srv/smarthub/db/003_planning.sql \
+        2>/dev/null && echo "   ✅ Migration 003 appliquée" \
+        || echo "   ℹ️  Migration 003 déjà appliquée ou erreur ignorée"
 else
     echo ""
     echo "🆕 Nouvelle base de données — les deux scripts SQL seront exécutés au démarrage."
