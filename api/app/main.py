@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .core.database import Base, engine
 from .core.config import get_settings
-from .routers import auth, clients, timetrack, contracts, projects, equipment, forensics, interventions, dashboard, planning
+from .routers import auth, clients, timetrack, contracts, projects, equipment, forensics, interventions, dashboard, planning, admin
 from .routers.equipment import atelier_router
 from .routers.nas import router as nas_router
 from .routers.documents import router as documents_router
@@ -67,6 +67,7 @@ app.include_router(nas_router,           prefix=PREFIX)
 app.include_router(asbuilt_router,       prefix=PREFIX)
 app.include_router(rack_router,          prefix=PREFIX)
 app.include_router(pdf_router,           prefix=PREFIX)
+app.include_router(admin.router,         prefix=PREFIX)
 
 
 @app.get("/health", tags=["system"])
