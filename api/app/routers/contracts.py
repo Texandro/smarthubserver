@@ -252,3 +252,84 @@ async def update_contract(
     cr = await db.execute(select(Client.name).where(Client.id == contract.client_id))
     contract._client_name = cr.scalar_one_or_none() or ""
     return _contract_dict(contract)
+
+
+@router.delete("/{contract_id}", status_code=204)
+async def delete_contract(
+    contract_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_owner),
+):
+    """Supprime un contrat et ses items (cascade)."""
+    result = await db.execute(select(Contract).where(Contract.id == contract_id))
+    contract = result.scalar_one_or_none()
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contrat introuvable")
+    await db.delete(contract)
+    await db.flush()
+
+
+@router.post("/{contract_id}/regenerate-pdf", response_model=dict)
+async def regenerate_pdf(
+    contract_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_owner),
+):
+    """Regénère le PDF du contrat et le sauve sur le NAS."""
+    import os
+    from pathlib import Path
+    from ..services.contract_pdf import generate_lm, generate_maintenance
+
+    result = await db.execute(
+        select(Contract).options(selectinload(Contract.items))
+        .where(Contract.id == contract_id)
+    )
+    contract = result.scalar_one_or_none()
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contrat introuvable")
+
+    cr = await db.execute(select(Client).where(Client.id == contract.client_id))
+    client = cr.scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client introuvable")
+
+    # Construire le payload pour le générateur PDF
+    data = _contract_dict(contract)
+    data["client_name"] = client.name
+    data["client_address"] = client.address or ""
+    data["client_vat"] = client.vat_number or ""
+
+    try:
+        if contract.contract_type == ContractType.maintenance:
+            pdf_bytes = generate_maintenance(data)
+        else:
+            pdf_bytes = generate_lm(data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur génération PDF : {e}")
+
+    # Sauvegarder sur le NAS
+    import re
+    NAS_BASE = Path(os.getenv("NAS_BASE_PATH", "/mnt/nas/smarthub/Clients"))
+    safe_name = re.sub(r'[<>:"/\\|?*]', '-', client.name).strip('. ')[:80]
+    nas_saved = False
+    nas_path_str = None
+
+    if NAS_BASE.exists():
+        target = NAS_BASE / safe_name / "0. Contrats signés"
+        try:
+            target.mkdir(parents=True, exist_ok=True)
+            pdf_path = target / f"{contract.reference}.pdf"
+            pdf_path.write_bytes(pdf_bytes)
+            nas_saved = True
+            nas_path_str = str(pdf_path).replace("/mnt/nas", "\\\\NAS")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Écriture NAS échouée : {e}")
+
+    return {
+        "contract_id": str(contract_id),
+        "reference": contract.reference,
+        "pdf_size": len(pdf_bytes),
+        "nas_saved": nas_saved,
+        "nas_path": nas_path_str,
+        "warnings": [] if nas_saved else ["NAS non monté — PDF généré mais non sauvegardé"],
+    }

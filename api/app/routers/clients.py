@@ -150,9 +150,14 @@ async def create_client(
     if nas["success"] and not client.nas_path:
         client.nas_path = nas.get("nas_path", nas["path"])
         await db.flush()
+        result["nas_path"] = client.nas_path
 
     result["nas_created"] = nas["success"]
     result["nas_error"]   = nas.get("error")
+    result["warnings"]    = [] if nas["success"] else [
+        f"NAS indisponible — dossier non créé ({nas.get('error', 'unknown')}). "
+        "Utilisez POST /clients/{id}/retry-nas pour réessayer."
+    ]
     return result
 
 
@@ -175,6 +180,35 @@ async def update_client(
     await db.flush()
     await db.refresh(client)
     return _client_dict(client)
+
+
+@router.post("/{client_id}/retry-nas", response_model=dict)
+async def retry_nas(
+    client_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_owner),
+):
+    """Retente la création de la structure NAS pour un client."""
+    result = await db.execute(select(Client).where(Client.id == client_id))
+    client = result.scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client introuvable")
+
+    import asyncio
+    from .nas import create_client_structure
+    loop = asyncio.get_event_loop()
+    nas = await loop.run_in_executor(None, create_client_structure, client.name)
+    if nas["success"] and not client.nas_path:
+        client.nas_path = nas.get("nas_path", nas["path"])
+        await db.flush()
+
+    return {
+        "client_id":   str(client_id),
+        "client_name": client.name,
+        "nas_created": nas["success"],
+        "nas_path":    nas.get("nas_path", nas.get("path")),
+        "nas_error":   nas.get("error"),
+    }
 
 
 # ── FICHE 360° — données consolidées par client ────────────
