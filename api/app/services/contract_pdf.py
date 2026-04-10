@@ -2054,22 +2054,26 @@ def _append_shredding_annex(story):
 # ══════════════════════════════════════════════════════════════════════════════
 
 def generate_maintenance(data: dict) -> bytes:
-    """Génère un contrat de maintenance. Retourne les bytes du PDF."""
+    """Génère un contrat de maintenance complet. Retourne les bytes du PDF."""
     ref = data.get("reference", "")
     buf = io.BytesIO()
     doc, fp, lp = base_doc(buf, "Contrat de maintenance", ref)
     story = []
 
+    # ── Couverture ──
     story.append(sp(18))
     story.append(para("CONTRAT DE MAINTENANCE", "title_doc"))
     story.append(para("Maintenance corrective & préventive", "subtitle"))
-    story.append(para("Service de garde – SLA garanti", "subtitle2"))
+    story.append(para("Service de garde – SLA", "subtitle2"))
     story.append(hr(thickness=2, space_before=4, space_after=16))
 
+    # §1 PARTIES
+    story.append(section(1, "Parties"))
     story.append(para("Entre les soussignés :", "body"))
     story.append(sp(6))
     story.append(parties_block(PRESTATAIRE, data["client"]))
     story.append(sp(8))
+
     story.append(hr(color=SC_LGREY, thickness=0.5))
     story.append(para("IL A PRÉALABLEMENT ÉTÉ EXPOSÉ CE QUI SUIT", "body_bold"))
     story.append(sp(4))
@@ -2082,13 +2086,15 @@ def generate_maintenance(data: dict) -> bytes:
     story.append(para("IL A ENSUITE ÉTÉ CONVENU CE QUI SUIT", "body_bold"))
     story.append(sp(6))
 
-    story.append(section(1, "Objet du contrat"))
+    # §2 OBJET
+    story.append(section(2, "Objet du contrat"))
     story.append(para(
         "Le présent contrat a pour objet de définir les conditions et le contenu des "
         "prestations de maintenance délivrées par le prestataire. Le périmètre couvert "
         "est spécifié en Annexe 1.", "body"))
 
-    story.append(section(2, "Services couverts"))
+    # §3 SERVICES COUVERTS
+    story.append(section(3, "Services couverts"))
     for s in (data.get("services") or [
         "Maintenance corrective des équipements listés en Annexe 1.",
         "Maintenance préventive planifiée.",
@@ -2097,28 +2103,55 @@ def generate_maintenance(data: dict) -> bytes:
     ]):
         story.append(bullet_item(s))
 
-    story.append(section(3, "Maintenance corrective"))
+    # §4 MAINTENANCE CORRECTIVE
+    story.append(section(4, "Maintenance corrective"))
     story.append(para(
         "La maintenance corrective couvre la prise en charge et la résolution de tout "
         "incident résultant d'un comportement erroné documenté et provoqué par une anomalie. "
         "Dès la survenance d'un incident, le client notifiera sans délai le problème via le "
         "helpdesk (www.support.smartclick.be).", "body"))
     story.append(subsection("Niveaux de criticité"))
-    for c, d_c in [
+    for c_lbl, d_c in [
         ("Critique",  "Empêche l'utilisation dans son ensemble ou bloque l'activité du client."),
         ("Élevée",    "Empêche un sous-ensemble vital, perturbant fortement l'activité."),
         ("Moyenne",   "Bloque un sous-ensemble non vital, la majorité des activités peut continuer."),
         ("Basse",     "N'empêche pas l'utilisation ou est de nature cosmétique."),
     ]:
-        story.append(para(f"<b>{c}</b> : {d_c}", "bullet"))
+        story.append(para(f"<b>{c_lbl}</b> : {d_c}", "bullet"))
 
-    story.append(section(4, "Maintenance préventive"))
+    story.append(sp(4))
+    story.append(subsection("Interventions curatives"))
+    story.append(para(
+        "Les interventions curatives sont facturées selon la grille tarifaire "
+        "en Annexe 2, sauf mention contraire.", "body"))
+    story.append(para(
+        "Les éventuelles interventions incluses dans le contrat sont limitées "
+        "en nombre et en périmètre. Au-delà, toute intervention fera l'objet "
+        "d'une facturation selon la grille tarifaire.", "body"))
+
+    # §5 MAINTENANCE PRÉVENTIVE
+    story.append(section(5, "Maintenance préventive"))
     story.append(para(
         "La maintenance préventive consiste en une série de tâches planifiées destinées à "
         "prolonger la durée de vie des appareils. Les interventions sont planifiées à l'avance "
         "avec le client et documentées dans le système helpdesk.", "body"))
 
-    story.append(section(5, "Exclusions"))
+    # §6 SERVICE DE GARDE
+    story.append(section(6, "Service de garde"))
+    story.append(para(
+        "Le service de garde est un service de disponibilité des techniciens.",
+        "body"))
+    story.append(sp(4))
+    story.append(subsection("Service de garde passif"))
+    story.append(para(
+        "Le prestataire est joignable et en mesure d'intervenir selon les modalités "
+        "du SLA, sans obligation de présence sur site.", "body"))
+    story.append(para(
+        "Toute intervention effective fera l'objet d'une planification et, le cas "
+        "échéant, d'une facturation complémentaire.", "body"))
+
+    # §7 EXCLUSIONS
+    story.append(section(7, "Exclusions"))
     for e in (data.get("exclusions") or [
         "Interventions liées à une mauvaise utilisation, configuration non autorisée ou modification par un tiers.",
         "Défaillances d'infrastructure propre au client.",
@@ -2127,38 +2160,149 @@ def generate_maintenance(data: dict) -> bytes:
     ]):
         story.append(bullet_item(e))
 
-    story.append(section(6, "Durée"))
-    nb_ans = data.get("duree_ans", 1)
+    # §8 PIÈCES & CONSOMMABLES
+    story.append(section(8, "Pièces & consommables"))
     story.append(para(
-        f"Le contrat est conclu pour une durée déterminée de {nb_ans} an(s), renouvelable "
-        "par tacite reconduction sauf préavis d'un (1) mois avant l'échéance.", "body"))
+        "Les pièces de rechange et consommables ne sont pas inclus dans le contrat. "
+        "Ils feront l'objet d'un devis et d'une validation préalable.", "body"))
 
-    story.append(section(7, "Conditions financières"))
+    # §9 OBLIGATIONS DU PRESTATAIRE
+    story.append(section(9, "Obligations du prestataire"))
+    story.append(para(
+        "Le prestataire est tenu à une obligation de moyens. Il ne peut garantir "
+        "un résultat particulier, l'exécution dépendant notamment de l'état des "
+        "systèmes, des contraintes techniques et des dépendances fournisseurs.",
+        "body"))
+
+    # §10 OBLIGATIONS DU CLIENT
+    story.append(section(10, "Obligations du client"))
+    story.append(para("Le client s'engage à :", "body"))
+    story.append(bullet_item(
+        "Utiliser les systèmes conformément à leur destination et aux "
+        "recommandations du prestataire."))
+    story.append(bullet_item(
+        "Fournir un accès complet et sécurisé aux systèmes nécessaires."))
+    story.append(bullet_item(
+        "Maintenir un environnement technique conforme aux prérequis communiqués."))
+    story.append(bullet_item(
+        "Ne pas modifier les systèmes sans validation préalable du prestataire."))
+    story.append(bullet_item(
+        "Informer le prestataire via le helpdesk de tout incident de manière "
+        "claire et documentée."))
+    story.append(bullet_item(
+        "Collaborer activement à la résolution des incidents."))
+
+    # §11 CONDITIONS FINANCIÈRES
+    story.append(section(11, "Conditions financières"))
     story.append(para(
         "La redevance est facturée avant le début de chaque période. Ce montant est "
-        "irréductible et forfaitaire. Les interventions curatives du mois sont facturées "
-        "avec la redevance mensuelle.", "body"))
+        "irréductible et forfaitaire.", "body"))
     total = data.get("total_htva", 0)
     if total:
         story.append(para(f"<b>Total annuel HTVA : {total:.2f} €</b>", "body_bold"))
 
-    story += common_clauses()
+    story.append(sp(4))
+    story.append(subsection("Conditions de paiement"))
+    story.append(para(
+        "Les factures sont payables dans un délai de <b>15 jours</b> à compter "
+        "de leur date d'émission.", "body"))
+    story.append(para(
+        "Tout retard de paiement entraîne de plein droit :", "body"))
+    story.append(bullet_item("Des intérêts de retard au taux légal."))
+    story.append(bullet_item(
+        "Une indemnité forfaitaire de 10 % du montant impayé."))
+    story.append(para(
+        "Le prestataire se réserve le droit de suspendre tout ou partie des "
+        "services en cas de non-paiement.", "body"))
 
+    # §12 DURÉE
+    story.append(section(12, "Durée"))
+    nb_ans = data.get("duree_ans", 1)
+    story.append(para(
+        f"Le contrat est conclu pour une durée déterminée de <b>{nb_ans} an(s)</b>, "
+        "renouvelable par tacite reconduction sauf préavis d'un (1) mois avant "
+        "l'échéance.", "body"))
+
+    # §13 RÉSILIATION
+    story.append(section(13, "Résiliation"))
+    story.append(para(
+        "En cas de manquement grave d'une des parties à ses obligations contractuelles, "
+        "l'autre partie pourra résilier le contrat après mise en demeure restée sans "
+        "effet pendant un délai de 15 jours.", "body"))
+    story.append(para(
+        "En cas de résiliation anticipée par le client, les redevances dues jusqu'à "
+        "la fin de la période contractuelle restent exigibles.", "body"))
+    story.append(para(
+        "Le prestataire peut suspendre ses services en cas de non-paiement ou de "
+        "non-respect des obligations contractuelles.", "body"))
+
+    # §14 RESPONSABILITÉ
+    story.append(section(14, "Responsabilité"))
+    story.append(para(
+        "Le prestataire ne pourra être tenu responsable des dommages indirects, "
+        "pertes de données ou interruptions d'activité. Sa responsabilité est "
+        "limitée au montant des honoraires facturés sur la période concernée.",
+        "body"))
+
+    story.append(sp(4))
+    story.append(subsection("Limitations techniques"))
+    story.append(para("Le prestataire ne peut garantir :", "body"))
+    story.append(bullet_item(
+        "La compatibilité avec des systèmes tiers non documentés."))
+    story.append(bullet_item(
+        "La résolution de problèmes liés à des modifications externes."))
+    story.append(bullet_item(
+        "La disponibilité de services dépendant de fournisseurs tiers."))
+
+    # §15 FORCE MAJEURE
+    story.append(section(15, "Force majeure"))
+    story.append(para(
+        "Le prestataire ne pourra être tenu responsable en cas de force majeure "
+        "empêchant l'exécution des prestations.", "body"))
+
+    # §16 CONFIDENTIALITÉ
+    story.append(section(16, "Confidentialité"))
+    story.append(para(
+        "Le prestataire est tenu à une obligation de confidentialité renforcée "
+        "concernant l'ensemble des informations auxquelles il a accès dans le "
+        "cadre du présent contrat. Cette obligation perdure après la fin du "
+        "contrat.", "body"))
+
+    # §17 NON-SOLLICITATION
+    story.append(section(17, "Non-sollicitation"))
+    story.append(para(
+        "Le client s'engage à ne pas recruter ou solliciter directement le "
+        "personnel du prestataire pendant la durée du contrat et pendant une "
+        "période de 12 mois après sa fin.", "body"))
+
+    # §18 DROIT APPLICABLE
+    story.append(section(18, "Droit applicable et juridiction compétente"))
+    story.append(para(
+        "La présente convention est soumise au droit belge. En cas de litige, "
+        "les parties s'engagent à recourir préalablement à la médiation. "
+        "À défaut d'accord, les tribunaux de l'arrondissement judiciaire de "
+        "Bruxelles seront seuls compétents.", "body"))
+
+    # ── Notes ──
     if data.get("notes"):
         story.append(section("N", "Notes et conditions particulières"))
         story.append(para(data["notes"], "body"))
 
+    # ── Signatures ──
     story.append(sp(10))
     story.append(hr(color=SC_LGREY))
     story.append(sign_block(
         data.get("lieu", ""), data.get("date_doc", ""),
         data["client"]["nom"], data["client"].get("representant", "")))
 
-    # ── ANNEXE 1 – Dispositifs ──
+    # ══════════════════════════════════════════════════════════════════════
+    # ANNEXE 1 – Dispositifs sous contrat
+    # ══════════════════════════════════════════════════════════════════════
+    story.append(PageBreak())
+    story.append(annex_banner("Annexe 1 – Dispositifs sous contrat de maintenance"))
+    story.append(sp(8))
+
     if data.get("dispositifs"):
-        story.append(PageBreak())
-        story.append(annex_banner("Annexe 1 – Dispositifs sous contrat de maintenance"))
-        story.append(sp(8))
         dev_header = [para(h, "body_bold") for h in ["Dispositif", "Description", "Quantité"]]
         dev_rows = [dev_header]
         for d_item in data["dispositifs"]:
@@ -2182,12 +2326,20 @@ def generate_maintenance(data: dict) -> bytes:
             ("ALIGN",         (2, 0), (2, -1), "CENTER"),
         ]))
         story.append(t)
+    else:
+        story.append(para(
+            "<i>L'annexe 1 doit reprendre la liste précise des équipements sous contrat, "
+            "le périmètre couvert et les exclusions spécifiques. "
+            "À compléter avec le client.</i>", "body"))
 
-    # ── ANNEXE 2 – Tarification ──
+    # ══════════════════════════════════════════════════════════════════════
+    # ANNEXE 2 – Tarification
+    # ══════════════════════════════════════════════════════════════════════
     story.append(PageBreak())
     story.append(annex_banner("Annexe 2 – Tarification"))
     story.append(sp(8))
 
+    # Tarification annuelle (garde + préventif)
     annual_rows = []
     if data.get("tarif_garde_5_7"):
         annual_rows.append(("Redevance de garde – 5/7 passif en semaine (lu-ve)",
@@ -2203,24 +2355,34 @@ def generate_maintenance(data: dict) -> bytes:
                             f"{data['nb_interventions_offertes']} interventions"))
     if annual_rows:
         story += price_table(annual_rows, "Tarification annuelle")
+        story.append(sp(6))
 
-    story.append(sp(6))
-    curatif_rows = []
-    if data.get("tarif_horaire_curateur"):
-        th = data["tarif_horaire_curateur"]
-        curatif_rows += [
-            ("Intervention curative à distance – semaine /h",  f"{th:.2f} € HTVA"),
-            ("Intervention curative sur site – semaine /h",    f"{th:.2f} € HTVA"),
-            ("*Intervention curative à distance – weekend /h", f"{th * 1.17:.2f} € HTVA"),
-            ("*Intervention curative sur site – weekend /h",   f"{th * 1.41:.2f} € HTVA"),
-        ]
+    # Grille complète interventions curatives
+    th = data.get("tarif_horaire_curateur", 81.25)
+    curatif_rows = [
+        ("Intervention curative à distance – semaine /h",  f"{th:.2f} € HTVA"),
+        ("Intervention curative sur site – semaine /h",    f"{th:.2f} € HTVA"),
+        ("*Intervention curative à distance – weekend /h", f"{th * 1.17:.2f} € HTVA"),
+        ("*Intervention curative sur site – weekend /h",   f"{th * 1.41:.2f} € HTVA"),
+    ]
     if data.get("tarif_deplacement"):
         curatif_rows.append(("Déplacement en semaine / déplacement",
                              f"{data['tarif_deplacement']:.2f} € HTVA"))
-    if curatif_rows:
-        story += price_table(curatif_rows, "Grille tarifaire interventions curatives")
+    if data.get("tarif_reunion_bilan"):
+        curatif_rows.append(("Réunions de bilan de maintenance avec proposition chiffré sur le long terme",
+                             f"{data['tarif_reunion_bilan']:.2f} € HTVA"))
+    if data.get("tarif_formation_temposhow"):
+        curatif_rows.append(("Formation utilisation Temposhow 1/2 journée",
+                             f"{data['tarif_formation_temposhow']:.2f} € HTVA"))
+    story += price_table(curatif_rows, "Grille tarifaire interventions curatives")
+    story.append(sp(4))
+    story.append(para(
+        "* Les interventions curatives le weekend sont sur demande explicite du client.",
+        "small"))
 
-    # ── ANNEXE 3 – SLA ──
+    # ══════════════════════════════════════════════════════════════════════
+    # ANNEXE 3 – SLA
+    # ══════════════════════════════════════════════════════════════════════
     story.append(PageBreak())
     story.append(annex_banner("Annexe 3 – Service Level Agreement (SLA)"))
     story.append(sp(8))
@@ -2261,6 +2423,16 @@ def generate_maintenance(data: dict) -> bytes:
         "(*) Le délai de résolution sera communiqué sur base de l'analyse réalisée par "
         "l'équipe de support. Le client peut contacter le prestataire en cas de panne "
         "critique afin de trouver un consensus sur le moment d'intervention.", "small"))
+    story.append(sp(6))
+    story.append(para(
+        "Les délais sont donnés à titre indicatif et dépendent :", "body"))
+    story.append(bullet_item("De la qualité des informations fournies par le client."))
+    story.append(bullet_item("De l'accessibilité des systèmes."))
+    story.append(bullet_item("De la complexité de l'incident."))
+    story.append(para(
+        "Le SLA peut être suspendu si les informations nécessaires ne sont pas fournies. "
+        "Le prestataire peut proposer des solutions de contournement temporaires.",
+        "body"))
 
     doc.build(story, onFirstPage=fp, onLaterPages=lp)
     return buf.getvalue()
