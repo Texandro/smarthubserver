@@ -2339,42 +2339,114 @@ def generate_maintenance(data: dict) -> bytes:
     story.append(annex_banner("Annexe 2 – Tarification"))
     story.append(sp(8))
 
-    # Tarification annuelle (garde + préventif)
-    annual_rows = []
-    if data.get("tarif_garde_5_7"):
-        annual_rows.append(("Redevance de garde – 5/7 passif en semaine (lu-ve)",
-                            f"{data['tarif_garde_5_7']:.2f} € HTVA / semaine"))
-    if data.get("tarif_garde_7_7"):
-        annual_rows.append(("Redevance de garde – 7/7 passif (vacances scolaires / avril-novembre)",
-                            f"{data['tarif_garde_7_7']:.2f} € HTVA / semaine"))
-    if data.get("tarif_preventif"):
-        annual_rows.append(("Maintenance préventive technique (par journée)",
-                            f"{data['tarif_preventif']:.2f} € HTVA / jour"))
-    if data.get("nb_interventions_offertes"):
-        annual_rows.append(("Interventions offertes dans le contrat",
-                            f"{data['nb_interventions_offertes']} interventions"))
-    if annual_rows:
-        story += price_table(annual_rows, "Tarification annuelle")
-        story.append(sp(6))
-
-    # Grille complète interventions curatives
+    # ── Grille tarifaire 5 colonnes ──────────────────────────────────────
+    # Chaque ligne : (label, tarif_key, qty_key, type_label)
+    # tarif=0 ou qty=0 → ligne masquée
     th = data.get("tarif_horaire_curateur", 81.25)
-    curatif_rows = [
-        ("Intervention curative à distance – semaine /h",  f"{th:.2f} € HTVA"),
-        ("Intervention curative sur site – semaine /h",    f"{th:.2f} € HTVA"),
-        ("*Intervention curative à distance – weekend /h", f"{th * 1.17:.2f} € HTVA"),
-        ("*Intervention curative sur site – weekend /h",   f"{th * 1.41:.2f} € HTVA"),
+    _ALL_LINES = [
+        ("Redevance de garde – 5/7 passif (lu-ve)",
+         "tarif_garde_5_7", "qty_garde_5_7", "/ semaine"),
+        ("Redevance de garde – 7/7 passif (vacances / avril-nov)",
+         "tarif_garde_7_7", "qty_garde_7_7", "/ semaine"),
+        ("Maintenance préventive technique",
+         "tarif_preventif", "qty_preventif", "/ jour"),
+        ("Intervention curative à distance – semaine",
+         None, "qty_curative_distance", "/ heure"),
+        ("Intervention curative sur site – semaine",
+         None, "qty_curative_site", "/ heure"),
+        ("*Intervention curative à distance – weekend",
+         None, "qty_curative_distance_we", "/ heure"),
+        ("*Intervention curative sur site – weekend",
+         None, "qty_curative_site_we", "/ heure"),
+        ("Déplacement en semaine",
+         "tarif_deplacement", "qty_deplacement", "/ déplacement"),
+        ("Réunion bilan maintenance + proposition chiffrée",
+         "tarif_reunion_bilan", "qty_reunion_bilan", "/ réunion"),
+        ("Formation utilisation Temposhow 1/2 journée",
+         "tarif_formation_temposhow", "qty_formation_temposhow", "/ session"),
     ]
-    if data.get("tarif_deplacement"):
-        curatif_rows.append(("Déplacement en semaine / déplacement",
-                             f"{data['tarif_deplacement']:.2f} € HTVA"))
-    if data.get("tarif_reunion_bilan"):
-        curatif_rows.append(("Réunions de bilan de maintenance avec proposition chiffré sur le long terme",
-                             f"{data['tarif_reunion_bilan']:.2f} € HTVA"))
-    if data.get("tarif_formation_temposhow"):
-        curatif_rows.append(("Formation utilisation Temposhow 1/2 journée",
-                             f"{data['tarif_formation_temposhow']:.2f} € HTVA"))
-    story += price_table(curatif_rows, "Grille tarifaire interventions curatives")
+    # Tarifs curatives dérivés de tarif_horaire_curateur
+    _CURATIVE_RATES = {
+        "qty_curative_distance":    th,
+        "qty_curative_site":        th,
+        "qty_curative_distance_we": round(th * 1.17, 2),
+        "qty_curative_site_we":     round(th * 1.41, 2),
+    }
+
+    def _hdr(txt):
+        return Paragraph(f"<b>{txt}</b>",
+            ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8.5,
+                           textColor=colors.white, leading=11))
+    def _td(txt, align="left"):
+        al = TA_RIGHT if align == "right" else TA_LEFT
+        return Paragraph(txt,
+            ParagraphStyle("td", fontName="Helvetica", fontSize=8.5,
+                           textColor=SC_BLACK, leading=11, alignment=al))
+    def _td_bold(txt):
+        return Paragraph(f"<b>{txt}</b>",
+            ParagraphStyle("tb", fontName="Helvetica-Bold", fontSize=8.5,
+                           textColor=SC_BLUE, leading=11, alignment=TA_RIGHT))
+
+    tbl_data = [[
+        _hdr("Prestation"), _hdr("Prix unitaire"),
+        _hdr("Type"), _hdr("Quantité"), _hdr("Total net"),
+    ]]
+    grand_total = 0.0
+
+    for label, tarif_key, qty_key, type_lbl in _ALL_LINES:
+        # Récupérer le tarif (depuis data ou table curative)
+        if tarif_key:
+            tarif_val = data.get(tarif_key, 0) or 0
+        else:
+            tarif_val = _CURATIVE_RATES.get(qty_key, 0)
+        qty_val = data.get(qty_key, 0) or 0
+        tarif_val = float(tarif_val)
+        qty_val = float(qty_val)
+        if tarif_val == 0 or qty_val == 0:
+            continue
+        line_total = round(tarif_val * qty_val, 2)
+        grand_total += line_total
+        tbl_data.append([
+            _td(label),
+            _td(f"{tarif_val:.2f} €", "right"),
+            _td(type_lbl),
+            _td(f"{qty_val:g}", "right"),
+            _td(f"{line_total:.2f} €", "right"),
+        ])
+
+    # Interventions offertes (ligne info, pas de total)
+    nb_offertes = data.get("nb_interventions_offertes", 0)
+    if nb_offertes:
+        tbl_data.append([
+            _td("Interventions offertes dans le contrat"),
+            _td("—"), _td(""), _td(f"{nb_offertes}", "right"), _td("inclus"),
+        ])
+
+    # Ligne total
+    total_htva = data.get("total_htva", grand_total)
+    tbl_data.append([_td(""), _td(""), _td(""), _td(""), _td("")])
+    tbl_data.append([
+        _td_bold("TOTAL ANNUEL HTVA"), _td(""), _td(""), _td(""),
+        _td_bold(f"{total_htva:.2f} €"),
+    ])
+
+    n = len(tbl_data)
+    tbl = Table(tbl_data, colWidths=[185, 80, 70, 60, 80])
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, 0), SC_BLUE),
+        ("FONTNAME",      (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE",      (0, 0), (-1, -1), 8.5),
+        ("ROWBACKGROUNDS",(0, 1), (-1, n - 3), [colors.white, SC_LGREY]),
+        ("GRID",          (0, 0), (-1, n - 3), 0.3, colors.lightgrey),
+        ("LINEABOVE",     (0, n - 1), (-1, n - 1), 0.8, SC_BLUE),
+        ("BACKGROUND",    (0, n - 1), (-1, n - 1), HexColor("#E8F0FB")),
+        ("TOPPADDING",    (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
+    ]))
+    story.append(para("Grille tarifaire", "subsection"))
+    story.append(tbl)
     story.append(sp(4))
     story.append(para(
         "* Les interventions curatives le weekend sont sur demande explicite du client.",
