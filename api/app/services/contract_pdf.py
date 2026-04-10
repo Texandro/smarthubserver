@@ -77,6 +77,8 @@ def generate_lm(data: dict) -> bytes:
         return _generate_cloud_lm(data)
     if t == "gestion_it":
         return _generate_gestion_it_lm(data)
+    if t == "reseau":
+        return _generate_reseau_lm(data)
 
     title1, title2 = TYPE_TITLES.get(t, ("Lettre de Mission", "Contrat de services"))
     ref = data.get("reference", "")
@@ -477,7 +479,191 @@ def _generate_gestion_it_lm(data: dict) -> bytes:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  1c. LETTRE DE MISSION CLOUD — Template 15 sections
+#  1c. LETTRE DE MISSION RÉSEAU / STARTER PACK PME
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _generate_reseau_lm(data: dict) -> bytes:
+    """
+    Template dédié pour les contrats Réseau / Starter Pack PME.
+    Structure alignée sur les templates Cloud et Gestion IT.
+    """
+    ref = data.get("reference", "")
+    reseau = data.get("reseau", {})
+    buf = io.BytesIO()
+    doc, fp, lp = base_doc(buf, "Projet réseau — Starter Pack PME", ref)
+    story = []
+
+    # ── Couverture ──
+    story.append(sp(18))
+    story.append(para("LETTRE DE MISSION", "title_doc"))
+    story.append(para("Projet réseau — Starter Pack PME", "subtitle"))
+    story.append(para("Fourniture, installation & configuration", "subtitle2"))
+    story.append(hr(thickness=2, space_before=4, space_after=16))
+
+    # §1 PARTIES
+    story.append(section(1, "Parties"))
+    story.append(para("Entre les soussignés :", "body"))
+    story.append(sp(6))
+    story.append(parties_block(PRESTATAIRE, data["client"]))
+    story.append(sp(8))
+
+    # §2 OBJET
+    story.append(hr(color=SC_LGREY, thickness=0.5))
+    story.append(para("IL A PRÉALABLEMENT ÉTÉ EXPOSÉ CE QUI SUIT", "body_bold"))
+    story.append(sp(4))
+    story.append(para(
+        data.get("contexte",
+                 "Le client souhaite confier au prestataire la fourniture, "
+                 "l'installation et la configuration de son infrastructure réseau."),
+        "body"))
+    story.append(sp(6))
+    story.append(hr(color=SC_LGREY, thickness=0.5))
+    story.append(para("IL A ENSUITE ÉTÉ CONVENU CE QUI SUIT", "body_bold"))
+    story.append(sp(6))
+
+    story.append(section(2, "Objet de la convention"))
+    story.append(para(
+        "Le présent contrat a pour objet la fourniture, par le prestataire, des "
+        "prestations décrites ci-après, au bénéfice du client.", "body"))
+
+    # §3 PRÉREQUIS CLIENT
+    story.append(section(3, "Prérequis client"))
+    story.append(para(
+        "Le client s'engage à fournir un environnement opérationnel permettant "
+        "l'exécution de la mission, notamment :", "body"))
+    story.append(bullet_item("Accès internet fonctionnel."))
+    story.append(bullet_item("Alimentation électrique disponible."))
+    story.append(bullet_item("Accès aux locaux et équipements."))
+    story.append(bullet_item("Informations techniques nécessaires."))
+    story.append(para(
+        "Tout retard ou impossibilité d'intervention lié à ces éléments pourra "
+        "entraîner une replanification ou une facturation complémentaire.", "body"))
+
+    # §4 PÉRIMÈTRE DES SERVICES
+    story.append(section(4, "Périmètre des services"))
+
+    story.append(subsection("4.1 Prestations incluses"))
+    story.append(para(
+        "Les missions confiées au prestataire comprennent :", "body"))
+    for m in data.get("missions", []):
+        story.append(bullet_item(m))
+
+    story.append(sp(4))
+    story.append(subsection("4.2 Prestations exclues"))
+    default_excl = [
+        "Travaux de câblage structuré (électricien certifié).",
+        "Fourniture de mobilier ou d'alimentation électrique.",
+        "Développement applicatif ou formation utilisateur.",
+    ]
+    for e in (data.get("exclusions") or default_excl):
+        story.append(bullet_item(e))
+
+    story.append(sp(4))
+    story.append(subsection("4.3 Demandes supplémentaires"))
+    story.append(para(
+        "Tout travail non prévu dans le périmètre initial fera l'objet d'un "
+        "accord préalable et d'une facturation complémentaire.", "body"))
+
+    # §5 VALIDATION & RÉCEPTION
+    story.append(section(5, "Validation & réception"))
+    story.append(para(
+        "À la fin de l'installation, un test de fonctionnement est réalisé.",
+        "body"))
+    story.append(para(
+        "La mission est considérée comme acceptée dès validation par le client ou, "
+        "à défaut de remarques dans un délai de 5 jours ouvrables, comme tacitement "
+        "acceptée.", "body"))
+
+    # §6 DÉLAIS
+    story.append(section(6, "Délais"))
+    story.append(para(
+        "Les délais d'intervention sont donnés à titre indicatif et peuvent être "
+        "adaptés en fonction des contraintes techniques ou logistiques.", "body"))
+
+    # §7 HONORAIRES ET FRAIS
+    story.append(section(7, "Honoraires et frais"))
+    if reseau:
+        _build_reseau_pricing(story, data)
+    else:
+        tarif = data.get("tarif_horaire", 81.25)
+        story.append(para(
+            f"Les prestations sont facturées au tarif horaire de "
+            f"<b>{tarif:.2f} € HTVA</b>.", "body"))
+
+    story.append(sp(4))
+    story.append(subsection("Garantie matériel"))
+    story.append(para(
+        "Le matériel fourni est couvert par la garantie constructeur. "
+        "Le prestataire n'assure pas de garantie supplémentaire, sauf "
+        "mention contraire.", "body"))
+
+    story.append(sp(4))
+    story.append(subsection("Conditions de paiement"))
+    story.append(para(
+        "Les factures sont payables dans un délai de <b>15 jours</b> à compter "
+        "de leur date d'émission.", "body"))
+    story.append(para(
+        "En cas de non-paiement persistant malgré rappel, le prestataire se "
+        "réserve le droit de suspendre les services après notification préalable.",
+        "body"))
+
+    # §8 RESPONSABILITÉ
+    story.append(section(8, "Responsabilité"))
+    story.append(para(
+        "Le prestataire ne pourra être tenu responsable des dommages indirects, "
+        "pertes de données ou interruptions d'activité. Sa responsabilité est "
+        "limitée au montant des honoraires facturés.", "body"))
+    story.append(para(
+        "Le prestataire ne peut être tenu responsable des dysfonctionnements liés "
+        "à une infrastructure existante, à des équipements tiers ou à des "
+        "configurations antérieures.", "body"))
+
+    # §9 CONFIDENTIALITÉ
+    story.append(section(9, "Confidentialité"))
+    story.append(para(
+        "Le prestataire est tenu à une obligation de confidentialité renforcée "
+        "concernant l'ensemble des informations auxquelles il a accès dans le "
+        "cadre de la présente mission. Cette obligation perdure après la fin "
+        "du contrat.", "body"))
+
+    # §10 DROIT APPLICABLE
+    story.append(section(10, "Droit applicable et juridiction compétente"))
+    story.append(para(
+        "La présente convention est soumise au droit belge. En cas de litige, "
+        "les parties s'engagent à recourir préalablement à la médiation. "
+        "À défaut d'accord, les tribunaux de l'arrondissement judiciaire de "
+        "Bruxelles seront seuls compétents.", "body"))
+
+    # ── Notes ──
+    if data.get("notes"):
+        story.append(section("N", "Notes et conditions particulières"))
+        story.append(para(data["notes"], "body"))
+
+    # ── Signatures ──
+    story.append(sp(10))
+    story.append(hr(color=SC_LGREY))
+    story.append(sign_block(
+        lieu=data.get("lieu", ""),
+        date_str=data.get("date_doc", ""),
+        client_nom=data["client"]["nom"],
+        client_fn=data["client"].get("representant", ""),
+    ))
+
+    # ── ANNEXE Grille tarifaire ──
+    story.append(PageBreak())
+    story.append(annex_banner("Grille tarifaire"))
+    story.append(sp(8))
+    if reseau:
+        _build_reseau_annex(story, data)
+    else:
+        _build_standard_annex(story, data, data.get("tarif_horaire", 81.25))
+
+    doc.build(story, onFirstPage=fp, onLaterPages=lp)
+    return buf.getvalue()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  1d. LETTRE DE MISSION CLOUD — Template 15 sections
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _generate_cloud_lm(data: dict) -> bytes:
