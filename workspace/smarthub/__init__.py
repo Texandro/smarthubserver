@@ -1,0 +1,1 @@
+"""SmartHub — ERP Smartclick"""

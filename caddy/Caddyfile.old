@@ -1,0 +1,36 @@
+# Smartclick — Caddyfile
+# hub.smartclick.be → ERP principal
+# pgadmin.smartclick.be → pgAdmin (accès restreint)
+
+hub.smartclick.be {
+    reverse_proxy smarthub-api:8000
+
+    # Logs
+    log {
+        output file /var/log/caddy/hub.smartclick.be.log
+        format json
+    }
+}
+
+pgadmin.smartclick.be {
+    # Restreindre pgAdmin — accès IP fixe uniquement
+    # Remplacer par ton IP si accès externe nécessaire
+    @blocked not remote_ip 127.0.0.1 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
+    respond @blocked 403
+
+    reverse_proxy smarthub-pgadmin:80
+
+    log {
+        output file /var/log/caddy/pgadmin.smartclick.be.log
+        format json
+    }
+}
+
+
+kimai.smartclick.be {
+    reverse_proxy 172.17.0.1:8001
+    log {
+        output file /var/log/caddy/kimai.smartclick.be.log
+        format json
+    }
+}
