@@ -83,6 +83,8 @@ def generate_lm(data: dict) -> bytes:
         return _generate_full_inclusive_lm(data)
     if t == "full_exclusive":
         return _generate_full_exclusive_lm(data)
+    if t == "forensics":
+        return _generate_forensics_lm(data)
 
     title1, title2 = TYPE_TITLES.get(t, ("Lettre de Mission", "Contrat de services"))
     ref = data.get("reference", "")
@@ -920,7 +922,225 @@ def _generate_full_exclusive_lm(data: dict) -> bytes:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  1e. LETTRE DE MISSION RÉSEAU / STARTER PACK PME
+#  1e. LETTRE DE MISSION FORENSICS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _generate_forensics_lm(data: dict) -> bytes:
+    """
+    Template dédié pour les missions de forensics informatique.
+    Ton sobre et crédible, protections prestataire.
+    """
+    ref = data.get("reference", "")
+    buf = io.BytesIO()
+    doc, fp, lp = base_doc(buf, "Mission de forensics informatique", ref)
+    story = []
+
+    # ── Couverture ──
+    story.append(sp(18))
+    story.append(para("LETTRE DE MISSION", "title_doc"))
+    story.append(para("Mission de forensics informatique", "subtitle"))
+    story.append(para("Lettre de mission – Expertise technique", "subtitle2"))
+    story.append(hr(thickness=2, space_before=4, space_after=16))
+
+    # §1 PARTIES
+    story.append(section(1, "Parties"))
+    story.append(para("Entre les soussignés :", "body"))
+    story.append(sp(6))
+    story.append(parties_block(PRESTATAIRE, data["client"]))
+    story.append(sp(8))
+
+    # §2 OBJET
+    story.append(hr(color=SC_LGREY, thickness=0.5))
+    story.append(para("IL A PRÉALABLEMENT ÉTÉ EXPOSÉ CE QUI SUIT", "body_bold"))
+    story.append(sp(4))
+    story.append(para(
+        data.get("contexte",
+                 "Le client souhaite confier au prestataire une mission d'expertise "
+                 "technique en forensics informatique."),
+        "body"))
+    story.append(sp(6))
+    story.append(hr(color=SC_LGREY, thickness=0.5))
+    story.append(para("IL A ENSUITE ÉTÉ CONVENU CE QUI SUIT", "body_bold"))
+    story.append(sp(6))
+
+    story.append(section(2, "Objet de la convention"))
+    story.append(para(
+        "Le présent contrat a pour objet la réalisation, par le prestataire, "
+        "d'une mission d'expertise technique en forensics informatique, "
+        "dans le cadre d'une obligation de moyens.", "body"))
+
+    # §3 AUTORISATION & LÉGITIMITÉ
+    story.append(section(3, "Autorisation & légitimité"))
+    story.append(para(
+        "Le client déclare être dûment autorisé à solliciter l'analyse des "
+        "systèmes et supports concernés, notamment au regard de la législation "
+        "relative à la vie privée et à la protection des données.", "body"))
+    story.append(para(
+        "Le client assume l'entière responsabilité quant à la légitimité "
+        "de la demande.", "body"))
+
+    # §4 NATURE DE L'INTERVENTION
+    story.append(section(4, "Nature de l'intervention"))
+    story.append(para(
+        "Le prestataire agit exclusivement en qualité d'expert technique "
+        "indépendant. Il ne procède à aucune qualification juridique, "
+        "disciplinaire ou pénale des faits observés. Les constatations "
+        "consignées dans le rapport sont strictement techniques et factuelles.",
+        "body"))
+
+    # §5 MISSIONS
+    story.append(section(5, "Missions du prestataire"))
+    story.append(para(
+        "Les missions confiées au prestataire comprennent notamment :", "body"))
+    for m in data.get("missions", []):
+        story.append(bullet_item(m))
+
+    story.append(sp(4))
+    story.append(subsection("Prestations exclues"))
+    default_excl = [
+        "Toute qualification juridique, disciplinaire ou pénale des faits observés.",
+        "Récupération garantie de données (dépend de l'état des supports).",
+        "Conservation des supports physiques au-delà de la mission.",
+    ]
+    for e in (data.get("exclusions") or default_excl):
+        story.append(bullet_item(e))
+
+    # §6 PRÉSERVATION DES DONNÉES & CHAÎNE DE TRAÇABILITÉ
+    story.append(section(6, "Préservation des données & chaîne de traçabilité"))
+    story.append(para(
+        "Le prestataire s'engage à respecter les bonnes pratiques de "
+        "préservation des données numériques. Lorsque cela est pertinent, "
+        "il procède à la réalisation d'images forensiques des supports, "
+        "constituant les éléments techniques de référence pour l'analyse.",
+        "body"))
+    story.append(para(
+        "Le prestataire met en œuvre des pratiques visant à assurer l'intégrité "
+        "des données analysées, notamment via l'utilisation de méthodes de copie "
+        "et de vérification (hashes).", "body"))
+    story.append(para(
+        "Toutefois, la gestion globale de la chaîne de conservation des preuves "
+        "relève de la responsabilité du client.", "body"))
+
+    # §7 CONSERVATION DES SUPPORTS
+    story.append(section(7, "Conservation des supports"))
+    story.append(para(
+        "Le prestataire n'a pas vocation à conserver le matériel analysé. "
+        "La conservation des supports physiques relève de la responsabilité "
+        "du client. Les éléments techniques produits (images, hashes, "
+        "documentation) sont conservés pendant la durée strictement nécessaire.",
+        "body"))
+
+    # §8 RAPPORT ET UTILISATION
+    story.append(section(8, "Rapport et utilisation"))
+    story.append(para(
+        "Le prestataire remet au client un rapport de forensics informatique "
+        "reprenant les constatations techniques effectuées. Ce rapport est "
+        "destiné au client et pourra, sous sa responsabilité exclusive, être "
+        "transmis à ses conseils juridiques ou aux autorités compétentes.",
+        "body"))
+    story.append(para(
+        "Le rapport est strictement technique et ne constitue ni un avis "
+        "juridique ni une preuve irréfutable. Son interprétation relève de "
+        "la responsabilité du client ou de ses conseils.", "body"))
+    story.append(para(
+        "Le prestataire ne peut garantir l'exhaustivité des résultats, "
+        "certaines données pouvant être altérées, supprimées ou inaccessibles.",
+        "body"))
+
+    # §9 ACCÈS & COLLABORATION
+    story.append(section(9, "Accès & collaboration"))
+    story.append(para(
+        "Le client s'engage à fournir un accès complet aux systèmes nécessaires. "
+        "Toute limitation d'accès peut affecter la qualité et la portée de "
+        "l'analyse.", "body"))
+    story.append(para(
+        "Le client garantit au prestataire un accès technique suffisant aux "
+        "systèmes, équipements et informations nécessaires à la bonne exécution "
+        "de la mission.", "body"))
+
+    # §10 HONORAIRES ET FRAIS
+    story.append(section(10, "Honoraires et frais"))
+    tarif = data.get("tarif_horaire", 81.25)
+    story.append(para(
+        f"Les prestations sont facturées sur base d'un tarif horaire de "
+        f"<b>{tarif:.2f} € HTVA</b>. La facturation est réalisée sur base "
+        "du temps réellement presté.", "body"))
+
+    story.append(sp(4))
+    story.append(subsection("Conditions de paiement"))
+    story.append(para(
+        "Les factures sont payables dans un délai de <b>15 jours</b> à compter "
+        "de leur date d'émission.", "body"))
+    story.append(para(
+        "En cas de non-paiement persistant malgré rappel, le prestataire se "
+        "réserve le droit de suspendre la mission après notification préalable.",
+        "body"))
+
+    # §11 DURÉE
+    story.append(section(11, "Durée de la mission"))
+    duree = data.get("duree", "ponctuelle")
+    if duree == "ponctuelle":
+        story.append(para(
+            "La présente mission est un ordre de mission ponctuel. Le contrat "
+            "prend fin à la remise du rapport final.", "body"))
+    else:
+        duree_texte = data.get("duree_texte", "à convenir")
+        story.append(para(
+            f"La présente mission est prévue pour une durée de "
+            f"<b>{duree_texte}</b>.", "body"))
+
+    # §12 RESPONSABILITÉ
+    story.append(section(12, "Responsabilité"))
+    story.append(para(
+        "Le prestataire ne pourra être tenu responsable des dommages indirects, "
+        "pertes de données ou conséquences juridiques découlant de l'exécution "
+        "ou de l'interprétation des livrables. Sa responsabilité est limitée "
+        "au montant des honoraires facturés.", "body"))
+
+    # §13 CONFIDENTIALITÉ
+    story.append(section(13, "Confidentialité"))
+    story.append(para(
+        "Le prestataire est tenu à une obligation de confidentialité renforcée "
+        "concernant l'ensemble des informations, données et documents auxquels "
+        "il a accès dans le cadre de la présente mission. Cette obligation "
+        "s'applique également à toute personne intervenant pour son compte et "
+        "perdure après la fin de la mission.", "body"))
+
+    # §14 DROIT APPLICABLE
+    story.append(section(14, "Droit applicable et juridiction compétente"))
+    story.append(para(
+        "La présente convention est soumise au droit belge. En cas de litige, "
+        "les parties s'engagent à recourir préalablement à la médiation. "
+        "À défaut d'accord, les tribunaux de l'arrondissement judiciaire de "
+        "Bruxelles seront seuls compétents.", "body"))
+
+    # ── Notes ──
+    if data.get("notes"):
+        story.append(section("N", "Notes et conditions particulières"))
+        story.append(para(data["notes"], "body"))
+
+    # ── Signatures ──
+    story.append(sp(10))
+    story.append(hr(color=SC_LGREY))
+    story.append(sign_block(
+        lieu=data.get("lieu", ""),
+        date_str=data.get("date_doc", ""),
+        client_nom=data["client"]["nom"],
+        client_fn=data["client"].get("representant", ""),
+    ))
+
+    # ── ANNEXE Grille tarifaire ──
+    story.append(PageBreak())
+    story.append(annex_banner("Grille tarifaire"))
+    story.append(sp(8))
+    _build_standard_annex(story, data, tarif)
+
+    doc.build(story, onFirstPage=fp, onLaterPages=lp)
+    return buf.getvalue()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  1f. LETTRE DE MISSION RÉSEAU / STARTER PACK PME
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _generate_reseau_lm(data: dict) -> bytes:
