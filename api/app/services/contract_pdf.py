@@ -71,6 +71,11 @@ def generate_lm(data: dict) -> bytes:
     }
 
     t = data.get("type", "ponctuel")
+
+    # Template dédié pour les contrats Cloud (15 sections)
+    if t == "cloud":
+        return _generate_cloud_lm(data)
+
     title1, title2 = TYPE_TITLES.get(t, ("Lettre de Mission", "Contrat de services"))
     ref = data.get("reference", "")
 
@@ -257,6 +262,316 @@ def generate_lm(data: dict) -> bytes:
         _build_reseau_annex(story, data)
     else:
         _build_standard_annex(story, data, tarif)
+
+    doc.build(story, onFirstPage=fp, onLaterPages=lp)
+    return buf.getvalue()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  1b. LETTRE DE MISSION CLOUD — Template 15 sections
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _generate_cloud_lm(data: dict) -> bytes:
+    """
+    Template dédié pour les contrats Cloud (Infrastructure serveurs).
+    15 sections contractuelles + section §4.4 conditionnelle (priorité TVA).
+    """
+    ref = data.get("reference", "")
+    buf = io.BytesIO()
+    doc, fp, lp = base_doc(buf, "Infrastructure serveurs Cloud", ref)
+    story = []
+
+    # ── Couverture ──
+    story.append(sp(18))
+    story.append(para("LETTRE DE MISSION", "title_doc"))
+    story.append(para("Infrastructure serveurs Cloud", "subtitle"))
+    story.append(para("Location, exploitation & administration", "subtitle2"))
+    story.append(hr(thickness=2, space_before=4, space_after=16))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §1 PARTIES
+    # ═══════════════════════════════════════════════════════════════════════
+    story.append(section(1, "Parties"))
+    story.append(para("Entre les soussignés :", "body"))
+    story.append(sp(6))
+    story.append(parties_block(PRESTATAIRE, data["client"]))
+    story.append(sp(8))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §2 OBJET
+    # ═══════════════════════════════════════════════════════════════════════
+    story.append(hr(color=SC_LGREY, thickness=0.5))
+    story.append(para("IL A PRÉALABLEMENT ÉTÉ EXPOSÉ CE QUI SUIT", "body_bold"))
+    story.append(sp(4))
+    story.append(para(
+        data.get("contexte",
+                 "Le client souhaite confier au prestataire l'hébergement, "
+                 "l'exploitation et l'administration de son infrastructure "
+                 "serveurs Cloud."),
+        "body"))
+    story.append(sp(6))
+    story.append(hr(color=SC_LGREY, thickness=0.5))
+    story.append(para("IL A ENSUITE ÉTÉ CONVENU CE QUI SUIT", "body_bold"))
+    story.append(sp(6))
+
+    story.append(section(2, "Objet de la convention"))
+    story.append(para(
+        "Le présent contrat a pour objet la fourniture, par le prestataire, des "
+        "prestations de services informatiques décrites ci-après, au bénéfice du "
+        "client, dans le cadre d'une obligation de moyens.", "body"))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §3 PÉRIMÈTRE DES SERVICES
+    # ═══════════════════════════════════════════════════════════════════════
+    story.append(section(3, "Périmètre des services"))
+
+    story.append(subsection("3.1 Prestations incluses"))
+    story.append(para(
+        "Les missions confiées au prestataire comprennent notamment :", "body"))
+    for m in data.get("missions", []):
+        story.append(bullet_item(m))
+
+    story.append(sp(4))
+    story.append(subsection("3.2 Prestations exclues"))
+    default_excl = [
+        "Support utilisateur final (Office/Outlook/Teams, usage applicatif).",
+        "Installation et maintenance des postes de travail (contrat séparé).",
+        "Interventions sur site chez le client (sauf accord préalable, devis séparé).",
+        "Projets/migrations non expressément convenus (devis/bon de commande).",
+        "Forensics et effacement sécurisé (contrats spécifiques).",
+    ]
+    for e in (data.get("exclusions") or default_excl):
+        story.append(bullet_item(e))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §4 SLA & SUPPORT
+    # ═══════════════════════════════════════════════════════════════════════
+    story.append(section(4, "SLA & Support"))
+
+    story.append(subsection("4.1 Horaires de support"))
+    story.append(para(
+        "Le support est assuré du lundi au vendredi, de 8h00 à 18h00, "
+        "hors jours fériés légaux belges.", "body"))
+
+    story.append(sp(4))
+    story.append(subsection("4.2 Délais d'intervention"))
+    story.append(para(
+        "<b>Incident critique</b> (infrastructure complètement indisponible) : "
+        "prise en charge dans les <b>4 heures</b> ouvrables.", "body"))
+    story.append(para(
+        "<b>Incident standard</b> (dégradation de service, fonctionnalité isolée) : "
+        "prise en charge dans le <b>jour ouvrable</b>.", "body"))
+
+    story.append(sp(4))
+    story.append(subsection("4.3 Limitations"))
+    story.append(para(
+        "Les délais ci-dessus constituent des objectifs de moyens et non des "
+        "engagements de résultat. Ils peuvent être impactés par la charge de "
+        "travail, les contraintes techniques et les dépendances fournisseurs "
+        "(Microsoft, OVH, opérateurs Internet).", "body"))
+
+    # §4.4 Priorité TVA (conditionnel)
+    if data.get("priorite_tva"):
+        story.append(sp(4))
+        story.append(subsection("4.4 Priorité – Périodes TVA (clients comptables)"))
+        story.append(para(
+            "Pour les clients dont l'activité est liée à des obligations fiscales "
+            "périodiques (notamment déclarations TVA), le prestataire adapte ses "
+            "priorités d'intervention durant les périodes critiques.", "body"))
+        story.append(sp(4))
+        story.append(para("<b>Engagement :</b>", "body"))
+        story.append(bullet_item(
+            "Priorisation des incidents bloquants liés à l'accès aux systèmes "
+            "comptables, aux serveurs RDS et aux outils nécessaires aux "
+            "déclarations TVA."))
+        story.append(bullet_item(
+            "Réduction des délais d'intervention dans la mesure du possible."))
+        story.append(sp(4))
+        story.append(para("<b>Limitations importantes :</b>", "body"))
+        story.append(bullet_item(
+            "Cet engagement ne constitue pas une obligation de résultat ni de "
+            "disponibilité étendue."))
+        story.append(bullet_item(
+            "Aucun SLA garanti spécifique n'est contractuellement imposé."))
+        story.append(bullet_item(
+            "Les interventions restent soumises à la charge de travail globale, "
+            "aux contraintes techniques et aux dépendances fournisseurs."))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §5 SÉCURITÉ & RESPONSABILITÉ UTILISATEUR
+    # ═══════════════════════════════════════════════════════════════════════
+    story.append(section(5, "Sécurité & responsabilité utilisateur"))
+    story.append(para(
+        "Le client s'engage à respecter les consignes de sécurité communiquées "
+        "par le prestataire, notamment en matière de mots de passe, "
+        "d'authentification multi-facteur et de gestion des accès utilisateurs. "
+        "Le prestataire ne pourra être tenu responsable des conséquences d'un "
+        "non-respect de ces consignes (compromission de comptes, fuites de données, "
+        "etc.).", "body"))
+    story.append(para(
+        "Le client est responsable de l'usage fait par ses utilisateurs des "
+        "ressources mises à disposition. Tout abus, utilisation frauduleuse ou "
+        "non conforme aux conditions d'utilisation des fournisseurs (Microsoft, "
+        "OVH) relève de la responsabilité exclusive du client.", "body"))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §6 SAUVEGARDES (BACKUP)
+    # ═══════════════════════════════════════════════════════════════════════
+    story.append(section(6, "Sauvegardes (Backup)"))
+    story.append(para(
+        "Le prestataire met en place et supervise une politique de sauvegarde "
+        "adaptée à l'infrastructure du client. Les sauvegardes sont réalisées "
+        "selon un planning défini conjointement (quotidien, hebdomadaire, mensuel).",
+        "body"))
+    story.append(para(
+        "Le prestataire s'engage à vérifier régulièrement le bon fonctionnement "
+        "des sauvegardes et à informer le client en cas d'anomalie détectée. "
+        "Toutefois, le prestataire ne peut garantir la récupération intégrale des "
+        "données en toutes circonstances, la restauration dépendant de l'état des "
+        "supports et de la nature de l'incident.", "body"))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §7 HONORAIRES
+    # ═══════════════════════════════════════════════════════════════════════
+    story.append(section(7, "Honoraires et frais"))
+
+    tarif = data.get("tarif_horaire", 81.25)
+
+    story.append(subsection("7.1 Abonnement mensuel"))
+    if data.get("cloud"):
+        _build_cloud_pricing(story, data, tarif)
+    else:
+        story.append(para(
+            "Le détail de l'abonnement mensuel est repris en annexe.", "body"))
+
+    story.append(sp(4))
+    story.append(subsection("7.2 Prestations hors forfait"))
+    story.append(para(
+        f"Les interventions ponctuelles hors périmètre du forfait mensuel sont "
+        f"facturées au tarif horaire de <b>{tarif:.2f} € HTVA</b> "
+        f"(facturation à la minute).", "body"))
+
+    story.append(sp(4))
+    story.append(subsection("7.3 Conditions de paiement"))
+    story.append(para(
+        "Les factures sont payables dans un délai de <b>15 jours</b> à compter "
+        "de leur date d'émission. Tout retard de paiement entraîne de plein "
+        "droit et sans mise en demeure un intérêt de retard au taux légal, "
+        "ainsi qu'une indemnité forfaitaire de 10 % du montant impayé avec un "
+        "minimum de 40 €.", "body"))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §8 DURÉE & RÉSILIATION
+    # ═══════════════════════════════════════════════════════════════════════
+    story.append(section(8, "Durée et résiliation"))
+    duree = data.get("duree", "indeterminee")
+    if duree == "indeterminee":
+        story.append(para(
+            "Le présent contrat est conclu pour une durée indéterminée. "
+            "Il est renouvelé par tacite reconduction. Chaque partie peut y "
+            "mettre fin moyennant un préavis d'un (1) mois, notifié par écrit, "
+            "sans préjudice des prestations déjà réalisées.", "body"))
+    else:
+        duree_texte = data.get("duree_texte", "à convenir")
+        story.append(para(
+            f"Le présent contrat est conclu pour une durée déterminée de "
+            f"<b>{duree_texte}</b>, renouvelable par tacite reconduction "
+            f"sauf préavis d'un (1) mois avant l'échéance.", "body"))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §9 RÉVERSIBILITÉ
+    # ═══════════════════════════════════════════════════════════════════════
+    story.append(section(9, "Réversibilité"))
+    story.append(para(
+        "En cas de résiliation du contrat, le prestataire s'engage à faciliter "
+        "la transition vers un nouveau prestataire ou vers une solution internalisée. "
+        "Il fournira au client, dans un délai raisonnable, l'ensemble des données, "
+        "accès et documentations nécessaires à la reprise des services.", "body"))
+    story.append(para(
+        "Les prestations liées à la réversibilité (migration, export de données, "
+        "assistance technique) sont facturées au tarif horaire en vigueur.", "body"))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §10 DÉPENDANCE AUX FOURNISSEURS
+    # ═══════════════════════════════════════════════════════════════════════
+    story.append(section(10, "Dépendance aux fournisseurs tiers"))
+    story.append(para(
+        "L'infrastructure repose sur des services tiers (Microsoft 365, OVH/Cloud, "
+        "opérateurs Internet). Le prestataire ne peut être tenu responsable des "
+        "interruptions, modifications tarifaires ou de service décidées "
+        "unilatéralement par ces fournisseurs.", "body"))
+    story.append(para(
+        "En cas de panne majeure d'un fournisseur tiers, le prestataire s'engage "
+        "à informer le client dans les meilleurs délais et à mettre en œuvre les "
+        "mesures palliatives raisonnablement à sa disposition.", "body"))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §11 RESPONSABILITÉ
+    # ═══════════════════════════════════════════════════════════════════════
+    story.append(section(11, "Responsabilité"))
+    story.append(para(
+        "La responsabilité globale du prestataire au titre du présent contrat "
+        "est limitée au montant total des honoraires facturés au cours des "
+        "<b>12 derniers mois</b> précédant l'événement ayant donné lieu à "
+        "la réclamation.", "body"))
+    story.append(para(
+        "Sont expressément exclus les dommages indirects, les pertes de "
+        "données, pertes d'exploitation, manque à gagner et préjudices "
+        "immatériels de toute nature.", "body"))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §12 CONFIDENTIALITÉ
+    # ═══════════════════════════════════════════════════════════════════════
+    story.append(section(12, "Confidentialité"))
+    story.append(para(
+        "Le prestataire est tenu à une obligation de confidentialité renforcée "
+        "concernant l'ensemble des informations, données et documents auxquels "
+        "il a accès dans le cadre de la présente mission. Cette obligation "
+        "s'applique également à toute personne intervenant pour son compte et "
+        "perdure après la fin du contrat.", "body"))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §13 INDEXATION
+    # ═══════════════════════════════════════════════════════════════════════
+    story.append(section(13, "Indexation"))
+    story.append(para(
+        "Les tarifs et redevances prévus au présent contrat sont susceptibles "
+        "d'être indexés annuellement sur base de l'indice des prix à la "
+        "consommation (IPC) publié par le SPF Économie, à la date anniversaire "
+        "du contrat. Le prestataire informera le client de toute adaptation "
+        "tarifaire au moins 30 jours à l'avance.", "body"))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §14 DROIT APPLICABLE
+    # ═══════════════════════════════════════════════════════════════════════
+    story.append(section(14, "Droit applicable et juridiction compétente"))
+    story.append(para(
+        "La présente convention est soumise au droit belge. En cas de litige, "
+        "les parties s'engagent à recourir préalablement à la médiation. "
+        "À défaut d'accord, les tribunaux de l'arrondissement judiciaire de "
+        "Bruxelles seront seuls compétents.", "body"))
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # §15 SIGNATURE
+    # ═══════════════════════════════════════════════════════════════════════
+    if data.get("notes"):
+        story.append(section("N", "Notes et conditions particulières"))
+        story.append(para(data["notes"], "body"))
+
+    story.append(sp(10))
+    story.append(hr(color=SC_LGREY))
+    story.append(sign_block(
+        lieu=data.get("lieu", ""),
+        date_str=data.get("date_doc", ""),
+        client_nom=data["client"]["nom"],
+        client_fn=data["client"].get("representant", ""),
+    ))
+
+    # ── ANNEXE Grille tarifaire ──
+    story.append(PageBreak())
+    story.append(annex_banner("Grille tarifaire"))
+    story.append(sp(8))
+    _build_cloud_annex(story, data)
 
     doc.build(story, onFirstPage=fp, onLaterPages=lp)
     return buf.getvalue()
