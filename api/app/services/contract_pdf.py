@@ -85,6 +85,8 @@ def generate_lm(data: dict) -> bytes:
         return _generate_full_exclusive_lm(data)
     if t == "forensics":
         return _generate_forensics_lm(data)
+    if t == "dev":
+        return _generate_dev_lm(data)
 
     title1, title2 = TYPE_TITLES.get(t, ("Lettre de Mission", "Contrat de services"))
     ref = data.get("reference", "")
@@ -1140,7 +1142,192 @@ def _generate_forensics_lm(data: dict) -> bytes:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  1f. LETTRE DE MISSION RÉSEAU / STARTER PACK PME
+#  1f. LETTRE DE MISSION DÉVELOPPEMENT SUR MESURE
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _generate_dev_lm(data: dict) -> bytes:
+    """
+    Template dédié pour les missions de développement sur mesure.
+    Protections scope creep + propriété intellectuelle.
+    """
+    ref = data.get("reference", "")
+    buf = io.BytesIO()
+    doc, fp, lp = base_doc(buf, "Mission de développement informatique", ref)
+    story = []
+
+    # ── Couverture ──
+    story.append(sp(18))
+    story.append(para("LETTRE DE MISSION", "title_doc"))
+    story.append(para("Mission de développement informatique", "subtitle"))
+    story.append(para("Lettre de mission – Développement sur mesure", "subtitle2"))
+    story.append(hr(thickness=2, space_before=4, space_after=16))
+
+    # §1 PARTIES
+    story.append(section(1, "Parties"))
+    story.append(para("Entre les soussignés :", "body"))
+    story.append(sp(6))
+    story.append(parties_block(PRESTATAIRE, data["client"]))
+    story.append(sp(8))
+
+    # §2 OBJET
+    story.append(hr(color=SC_LGREY, thickness=0.5))
+    story.append(para("IL A PRÉALABLEMENT ÉTÉ EXPOSÉ CE QUI SUIT", "body_bold"))
+    story.append(sp(4))
+    story.append(para(
+        data.get("contexte",
+                 "Le client souhaite confier au prestataire le développement "
+                 "d'une solution informatique sur mesure."),
+        "body"))
+    story.append(sp(6))
+    story.append(hr(color=SC_LGREY, thickness=0.5))
+    story.append(para("IL A ENSUITE ÉTÉ CONVENU CE QUI SUIT", "body_bold"))
+    story.append(sp(6))
+
+    story.append(section(2, "Objet de la convention"))
+    story.append(para(
+        "Le présent contrat a pour objet la conception et le développement, "
+        "par le prestataire, d'une solution informatique sur mesure au "
+        "bénéfice du client, dans le cadre d'une obligation de moyens.", "body"))
+
+    # §3 SPÉCIFICATIONS & VALIDATION
+    story.append(section(3, "Spécifications & validation"))
+    story.append(para(
+        "Les spécifications fonctionnelles sont validées par le client "
+        "avant le début du développement.", "body"))
+    story.append(para(
+        "Toute évolution ultérieure fera l'objet d'un accord complémentaire.",
+        "body"))
+
+    # §4 MISSIONS
+    story.append(section(4, "Missions du prestataire"))
+    story.append(para(
+        "Les missions confiées au prestataire comprennent notamment :", "body"))
+    for m in data.get("missions", []):
+        story.append(bullet_item(m))
+
+    story.append(sp(4))
+    story.append(subsection("Prestations exclues"))
+    default_excl = [
+        "Hébergement et maintenance de l'infrastructure (contrat séparé).",
+        "Formation utilisateur (devis séparé).",
+        "Évolutions fonctionnelles non prévues dans les spécifications.",
+    ]
+    for e in (data.get("exclusions") or default_excl):
+        story.append(bullet_item(e))
+
+    # §5 GESTION DES CHANGEMENTS
+    story.append(section(5, "Gestion des changements"))
+    story.append(para(
+        "Toute demande de modification ou d'ajout de fonctionnalité après "
+        "validation des spécifications fera l'objet d'une estimation "
+        "complémentaire et d'une validation préalable.", "body"))
+
+    # §6 RÉCEPTION & ACCEPTATION
+    story.append(section(6, "Réception & acceptation"))
+    story.append(para(
+        "À la livraison, le client dispose d'un délai de 5 jours ouvrables "
+        "pour formuler ses remarques.", "body"))
+    story.append(para(
+        "À défaut, la solution est considérée comme acceptée.", "body"))
+
+    # §7 PROPRIÉTÉ INTELLECTUELLE
+    story.append(section(7, "Propriété intellectuelle"))
+    story.append(para(
+        "La propriété du code développé est transférée au client après "
+        "paiement complet des prestations.", "body"))
+
+    # §8 SUPPORT POST-LIVRAISON
+    story.append(section(8, "Support post-livraison"))
+    support_jours = data.get("support_jours", 30)
+    story.append(para(
+        f"Le support post-livraison est limité à une période de "
+        f"<b>{support_jours} jours</b> et couvre uniquement les corrections "
+        "de bugs.", "body"))
+
+    # §9 HONORAIRES ET FRAIS
+    story.append(section(9, "Honoraires et frais"))
+    tarif = data.get("tarif_horaire", 81.25)
+    story.append(para(
+        f"Les prestations sont facturées sur base d'un tarif horaire de "
+        f"<b>{tarif:.2f} € HTVA</b>. La facturation est réalisée sur base "
+        "du temps réellement presté.", "body"))
+
+    story.append(sp(4))
+    story.append(subsection("Conditions de paiement"))
+    story.append(para(
+        "Les factures sont payables dans un délai de <b>15 jours</b> à compter "
+        "de leur date d'émission.", "body"))
+    story.append(para(
+        "En cas de non-paiement persistant malgré rappel, le prestataire se "
+        "réserve le droit de suspendre les travaux après notification préalable.",
+        "body"))
+
+    # §10 DURÉE
+    story.append(section(10, "Durée de la mission"))
+    duree = data.get("duree", "ponctuelle")
+    if duree == "ponctuelle":
+        story.append(para(
+            "La présente mission est un ordre de mission ponctuel. Le contrat "
+            "prend fin à la livraison de la solution convenue.", "body"))
+    else:
+        duree_texte = data.get("duree_texte", "à convenir")
+        story.append(para(
+            f"La présente mission est prévue pour une durée de "
+            f"<b>{duree_texte}</b>.", "body"))
+
+    # §11 RESPONSABILITÉ
+    story.append(section(11, "Responsabilité"))
+    story.append(para(
+        "Le prestataire ne pourra être tenu responsable des dommages indirects, "
+        "pertes de données ou interruptions d'activité. Sa responsabilité est "
+        "limitée au montant des honoraires facturés.", "body"))
+    story.append(para(
+        "Le prestataire ne peut garantir la compatibilité avec des systèmes "
+        "tiers non documentés ou des environnements spécifiques.", "body"))
+
+    # §12 CONFIDENTIALITÉ
+    story.append(section(12, "Confidentialité"))
+    story.append(para(
+        "Le prestataire est tenu à une obligation de confidentialité renforcée "
+        "concernant l'ensemble des informations auxquelles il a accès dans le "
+        "cadre de la présente mission. Cette obligation perdure après la fin "
+        "du contrat.", "body"))
+
+    # §13 DROIT APPLICABLE
+    story.append(section(13, "Droit applicable et juridiction compétente"))
+    story.append(para(
+        "La présente convention est soumise au droit belge. En cas de litige, "
+        "les parties s'engagent à recourir préalablement à la médiation. "
+        "À défaut d'accord, les tribunaux de l'arrondissement judiciaire de "
+        "Bruxelles seront seuls compétents.", "body"))
+
+    # ── Notes ──
+    if data.get("notes"):
+        story.append(section("N", "Notes et conditions particulières"))
+        story.append(para(data["notes"], "body"))
+
+    # ── Signatures ──
+    story.append(sp(10))
+    story.append(hr(color=SC_LGREY))
+    story.append(sign_block(
+        lieu=data.get("lieu", ""),
+        date_str=data.get("date_doc", ""),
+        client_nom=data["client"]["nom"],
+        client_fn=data["client"].get("representant", ""),
+    ))
+
+    # ── ANNEXE Grille tarifaire ──
+    story.append(PageBreak())
+    story.append(annex_banner("Grille tarifaire"))
+    story.append(sp(8))
+    _build_standard_annex(story, data, tarif)
+
+    doc.build(story, onFirstPage=fp, onLaterPages=lp)
+    return buf.getvalue()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  1g. LETTRE DE MISSION RÉSEAU / STARTER PACK PME
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _generate_reseau_lm(data: dict) -> bytes:
