@@ -420,6 +420,15 @@ def _generate_cloud_lm(data: dict) -> bytes:
         "ressources mises à disposition. Tout abus, utilisation frauduleuse ou "
         "non conforme aux conditions d'utilisation des fournisseurs (Microsoft, "
         "OVH) relève de la responsabilité exclusive du client.", "body"))
+    story.append(para(
+        "Le client s'engage à collaborer activement avec le prestataire en "
+        "fournissant, dans des délais raisonnables, les informations et accès "
+        "nécessaires à la résolution des incidents et à l'exécution des "
+        "prestations.", "body"))
+    story.append(para(
+        "Le client garantit au prestataire un accès technique suffisant aux "
+        "systèmes, équipements et informations nécessaires à la bonne exécution "
+        "des prestations.", "body"))
 
     # ═══════════════════════════════════════════════════════════════════════
     # §6 SAUVEGARDES (BACKUP)
@@ -470,6 +479,11 @@ def _generate_cloud_lm(data: dict) -> bytes:
         "droit et sans mise en demeure un intérêt de retard au taux légal, "
         "ainsi qu'une indemnité forfaitaire de 10 % du montant impayé avec un "
         "minimum de 40 €.", "body"))
+    story.append(para(
+        "En cas de non-paiement persistant malgré rappel, le prestataire se "
+        "réserve le droit de suspendre tout ou partie des services après "
+        "notification préalable au client, sans que cela ne puisse engager sa "
+        "responsabilité.", "body"))
 
     # ═══════════════════════════════════════════════════════════════════════
     # §8 DURÉE & RÉSILIATION
