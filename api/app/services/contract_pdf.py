@@ -33,6 +33,47 @@ from .pdf_common import (
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  HELPER — Section durée commune à tous les templates
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _duree_elems(data: dict, *, mission_ponctuelle: bool = False) -> list:
+    """Génère les paragraphes de la section durée à partir du payload.
+    Champs utilisés : duree, duree_texte, duree_mois, tacite, renouvelable.
+    """
+    elems = []
+    duree = data.get("duree", "indeterminee")
+    duree_texte = data.get("duree_texte", "")
+
+    if duree == "ponctuelle" or (mission_ponctuelle and duree == "ponctuelle"):
+        fin = data.get("duree_fin_texte", "à la remise du livrable convenu")
+        elems.append(para(
+            f"La présente mission est un ordre de mission ponctuel. Le contrat "
+            f"prend fin {fin}.", "body"))
+    elif duree == "indeterminee" and not duree_texte:
+        elems.append(para(
+            "Le présent contrat est conclu pour une durée indéterminée.",
+            "body"))
+    else:
+        txt = duree_texte or "à convenir"
+        elems.append(para(
+            f"Le présent contrat est conclu pour une durée de "
+            f"<b>{txt}</b>.", "body"))
+
+    # Tacite reconduction
+    if data.get("tacite", True) and duree != "ponctuelle":
+        elems.append(para(
+            "Le contrat est renouvelé tacitement pour une durée identique, "
+            "sauf notification contraire avec un préavis de 1 mois.", "body"))
+    elif duree != "ponctuelle":
+        elems.append(para(
+            "Chaque partie peut résilier le contrat moyennant un préavis "
+            "d'un (1) mois, notifié par écrit, sans préjudice des prestations "
+            "déjà réalisées.", "body"))
+
+    return elems
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  1. LETTRE DE MISSION GÉNÉRIQUE
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -230,20 +271,7 @@ def generate_lm(data: dict) -> bytes:
 
     # ── Durée ──
     story.append(section(excl_num + 2, "Durée du contrat"))
-    duree = data.get("duree", "indeterminee")
-    if duree == "indeterminee":
-        story.append(para(
-            "Le présent contrat est conclu pour une durée indéterminée. Il peut être "
-            "résilié par l'une ou l'autre des parties moyennant un préavis raisonnable "
-            "d'un (1) mois, sans préjudice des prestations déjà réalisées.", "body"))
-    elif duree == "ponctuelle":
-        story.append(para(
-            "La présente mission est un ordre de mission ponctuel. Le contrat prend fin "
-            "à la remise du livrable convenu.", "body"))
-    else:
-        story.append(para(
-            f"Le présent contrat est conclu pour une durée déterminée : "
-            f"{data.get('duree_texte', 'à convenir')}.", "body"))
+    story += _duree_elems(data)
 
     # ── Clauses communes ──
     story += common_clauses()
@@ -418,24 +446,7 @@ def _generate_gestion_it_lm(data: dict) -> bytes:
 
     # §7 DURÉE ET RÉSILIATION
     story.append(section(7, "Durée et résiliation"))
-    duree = data.get("duree", "indeterminee")
-    if duree == "indeterminee":
-        story.append(para(
-            "Le présent contrat est conclu pour une durée indéterminée. "
-            "Il est renouvelé par tacite reconduction.", "body"))
-    elif duree == "ponctuelle":
-        story.append(para(
-            "La présente mission est un ordre de mission ponctuel. Le contrat "
-            "prend fin à la remise du livrable convenu.", "body"))
-    else:
-        duree_texte = data.get("duree_texte", "à convenir")
-        story.append(para(
-            f"Le présent contrat est conclu pour une durée déterminée de "
-            f"<b>{duree_texte}</b>, renouvelable par tacite reconduction.",
-            "body"))
-    story.append(para(
-        "Chaque partie peut résilier le contrat moyennant un préavis d'un (1) mois, "
-        "notifié par écrit, sans préjudice des prestations déjà réalisées.", "body"))
+    story += _duree_elems(data)
 
     # §8 RESPONSABILITÉ
     story.append(section(8, "Responsabilité"))
@@ -657,20 +668,7 @@ def _generate_full_inclusive_lm(data: dict) -> bytes:
 
     # §8 DURÉE ET RÉSILIATION
     story.append(section(8, "Durée et résiliation"))
-    duree = data.get("duree", "indeterminee")
-    if duree == "indeterminee":
-        story.append(para(
-            "Le présent contrat est conclu pour une durée indéterminée. "
-            "Il est renouvelé par tacite reconduction.", "body"))
-    else:
-        duree_texte = data.get("duree_texte", "à convenir")
-        story.append(para(
-            f"Le présent contrat est conclu pour une durée déterminée de "
-            f"<b>{duree_texte}</b>, renouvelable par tacite reconduction.",
-            "body"))
-    story.append(para(
-        "Chaque partie peut résilier le contrat moyennant un préavis d'un (1) mois, "
-        "notifié par écrit, sans préjudice des prestations déjà réalisées.", "body"))
+    story += _duree_elems(data)
 
     # §9 RESPONSABILITÉ
     story.append(section(9, "Responsabilité"))
@@ -859,20 +857,7 @@ def _generate_full_exclusive_lm(data: dict) -> bytes:
 
     # §7 DURÉE ET RÉSILIATION
     story.append(section(7, "Durée et résiliation"))
-    duree = data.get("duree", "indeterminee")
-    if duree == "indeterminee":
-        story.append(para(
-            "Le présent contrat est conclu pour une durée indéterminée. "
-            "Il est renouvelé par tacite reconduction.", "body"))
-    else:
-        duree_texte = data.get("duree_texte", "à convenir")
-        story.append(para(
-            f"Le présent contrat est conclu pour une durée déterminée de "
-            f"<b>{duree_texte}</b>, renouvelable par tacite reconduction.",
-            "body"))
-    story.append(para(
-        "Chaque partie peut résilier le contrat moyennant un préavis d'un (1) mois, "
-        "notifié par écrit, sans préjudice des prestations déjà réalisées.", "body"))
+    story += _duree_elems(data)
 
     # §8 RESPONSABILITÉ
     story.append(section(8, "Responsabilité"))
@@ -1080,16 +1065,7 @@ def _generate_forensics_lm(data: dict) -> bytes:
 
     # §11 DURÉE
     story.append(section(11, "Durée de la mission"))
-    duree = data.get("duree", "ponctuelle")
-    if duree == "ponctuelle":
-        story.append(para(
-            "La présente mission est un ordre de mission ponctuel. Le contrat "
-            "prend fin à la remise du rapport final.", "body"))
-    else:
-        duree_texte = data.get("duree_texte", "à convenir")
-        story.append(para(
-            f"La présente mission est prévue pour une durée de "
-            f"<b>{duree_texte}</b>.", "body"))
+    story += _duree_elems(data, mission_ponctuelle=True)
 
     # §12 RESPONSABILITÉ
     story.append(section(12, "Responsabilité"))
@@ -1264,16 +1240,7 @@ def _generate_dev_lm(data: dict) -> bytes:
 
     # §10 DURÉE
     story.append(section(10, "Durée de la mission"))
-    duree = data.get("duree", "ponctuelle")
-    if duree == "ponctuelle":
-        story.append(para(
-            "La présente mission est un ordre de mission ponctuel. Le contrat "
-            "prend fin à la livraison de la solution convenue.", "body"))
-    else:
-        duree_texte = data.get("duree_texte", "à convenir")
-        story.append(para(
-            f"La présente mission est prévue pour une durée de "
-            f"<b>{duree_texte}</b>.", "body"))
+    story += _duree_elems(data, mission_ponctuelle=True)
 
     # §11 RESPONSABILITÉ
     story.append(section(11, "Responsabilité"))
@@ -1732,19 +1699,7 @@ def _generate_cloud_lm(data: dict) -> bytes:
     # §8 DURÉE & RÉSILIATION
     # ═══════════════════════════════════════════════════════════════════════
     story.append(section(8, "Durée et résiliation"))
-    duree = data.get("duree", "indeterminee")
-    if duree == "indeterminee":
-        story.append(para(
-            "Le présent contrat est conclu pour une durée indéterminée. "
-            "Il est renouvelé par tacite reconduction. Chaque partie peut y "
-            "mettre fin moyennant un préavis d'un (1) mois, notifié par écrit, "
-            "sans préjudice des prestations déjà réalisées.", "body"))
-    else:
-        duree_texte = data.get("duree_texte", "à convenir")
-        story.append(para(
-            f"Le présent contrat est conclu pour une durée déterminée de "
-            f"<b>{duree_texte}</b>, renouvelable par tacite reconduction "
-            f"sauf préavis d'un (1) mois avant l'échéance.", "body"))
+    story += _duree_elems(data)
 
     # ═══════════════════════════════════════════════════════════════════════
     # §9 RÉVERSIBILITÉ
