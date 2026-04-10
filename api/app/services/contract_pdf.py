@@ -2194,12 +2194,23 @@ def generate_maintenance(data: dict) -> bytes:
 
     # §11 CONDITIONS FINANCIÈRES
     story.append(section(11, "Conditions financières"))
-    story.append(para(
-        "La redevance est facturée avant le début de chaque période. Ce montant est "
-        "irréductible et forfaitaire.", "body"))
     total = data.get("total_htva", 0)
+    mensuel = round(total / 12, 2) if total else 0
+
+    story.append(para("La redevance est définie sur base annuelle.", "body"))
     if total:
-        story.append(para(f"<b>Total annuel HTVA : {total:.2f} €</b>", "body_bold"))
+        story.append(para(
+            f"Le montant total annuel est de : <b>{total:.2f} € HTVA</b>.",
+            "body"))
+        story.append(para(
+            f"Ce montant est facturé mensuellement, par douzième, soit : "
+            f"<b>{mensuel:.2f} € HTVA par mois</b>.", "body"))
+    story.append(para(
+        "La facturation est réalisée au début de chaque mois.", "body"))
+    story.append(para(
+        "La redevance reste due pour l'ensemble de la période contractuelle, "
+        "même en cas de résiliation anticipée, sauf disposition contraire.",
+        "body"))
 
     story.append(sp(4))
     story.append(subsection("Conditions de paiement"))
