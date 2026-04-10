@@ -81,6 +81,8 @@ def generate_lm(data: dict) -> bytes:
         return _generate_reseau_lm(data)
     if t == "full_inclusive":
         return _generate_full_inclusive_lm(data)
+    if t == "full_exclusive":
+        return _generate_full_exclusive_lm(data)
 
     title1, title2 = TYPE_TITLES.get(t, ("Lettre de Mission", "Contrat de services"))
     ref = data.get("reference", "")
@@ -716,7 +718,209 @@ def _generate_full_inclusive_lm(data: dict) -> bytes:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  1d. LETTRE DE MISSION RÉSEAU / STARTER PACK PME
+#  1d. LETTRE DE MISSION FULL EXCLUSIVE
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _generate_full_exclusive_lm(data: dict) -> bytes:
+    """
+    Template dédié pour les contrats IT Full Exclusive.
+    Facturation à la consommation — pas de forfait.
+    """
+    ref = data.get("reference", "")
+    buf = io.BytesIO()
+    doc, fp, lp = base_doc(buf, "IT at your service – Full Exclusive", ref)
+    story = []
+
+    # ── Couverture ──
+    story.append(sp(18))
+    story.append(para("LETTRE DE MISSION", "title_doc"))
+    story.append(para("IT at your service – Full Exclusive", "subtitle"))
+    story.append(para("Facturation à la consommation", "subtitle2"))
+    story.append(hr(thickness=2, space_before=4, space_after=16))
+
+    # §1 PARTIES
+    story.append(section(1, "Parties"))
+    story.append(para("Entre les soussignés :", "body"))
+    story.append(sp(6))
+    story.append(parties_block(PRESTATAIRE, data["client"]))
+    story.append(sp(8))
+
+    # §2 OBJET
+    story.append(hr(color=SC_LGREY, thickness=0.5))
+    story.append(para("IL A PRÉALABLEMENT ÉTÉ EXPOSÉ CE QUI SUIT", "body_bold"))
+    story.append(sp(4))
+    story.append(para(
+        data.get("contexte",
+                 "Le client souhaite bénéficier de services IT à la demande, "
+                 "facturés sur base du temps réellement presté."),
+        "body"))
+    story.append(sp(6))
+    story.append(hr(color=SC_LGREY, thickness=0.5))
+    story.append(para("IL A ENSUITE ÉTÉ CONVENU CE QUI SUIT", "body_bold"))
+    story.append(sp(6))
+
+    story.append(section(2, "Objet de la convention"))
+    story.append(para(
+        "Le présent contrat a pour objet la fourniture, par le prestataire, de "
+        "prestations de services informatiques à la demande, au bénéfice du "
+        "client, dans le cadre d'une obligation de moyens.", "body"))
+
+    # §3 PÉRIMÈTRE DES SERVICES
+    story.append(section(3, "Périmètre des services"))
+
+    story.append(subsection("3.1 Prestations incluses"))
+    story.append(para(
+        "Les missions confiées au prestataire comprennent notamment :", "body"))
+    for m in data.get("missions", []):
+        story.append(bullet_item(m))
+
+    story.append(sp(4))
+    story.append(subsection("3.2 Prestations exclues"))
+    default_excl = [
+        "Forensics (lettre de mission spécifique).",
+        "Projets/migrations majeurs non expressément convenus (devis préalable).",
+        "Interventions d'urgence hors heures ouvrées sans accord préalable.",
+    ]
+    for e in (data.get("exclusions") or default_excl):
+        story.append(bullet_item(e))
+
+    # §4 SLA & SUPPORT
+    story.append(section(4, "SLA & Support"))
+
+    story.append(subsection("4.1 Horaires"))
+    story.append(para(
+        "Le support est assuré du lundi au vendredi, de 8h00 à 18h00, "
+        "hors jours fériés légaux.", "body"))
+
+    story.append(sp(4))
+    story.append(subsection("4.2 Organisation des demandes"))
+    story.append(para(
+        "Les demandes doivent être introduites par e-mail ou tout autre "
+        "canal convenu.", "body"))
+    story.append(para(
+        "Les demandes non urgentes peuvent être planifiées. Les interventions "
+        "sont réalisées sur base de disponibilité et de planification convenue.",
+        "body"))
+
+    story.append(sp(4))
+    story.append(subsection("4.3 Délais"))
+    story.append(para(
+        "Les demandes sont traitées en fonction de leur priorité et de la "
+        "charge de travail. Les délais d'intervention constituent une "
+        "obligation de moyens.", "body"))
+
+    # §5 SÉCURITÉ & RESPONSABILITÉ UTILISATEUR
+    story.append(section(5, "Sécurité & responsabilité utilisateur"))
+    story.append(para(
+        "Le client est responsable de l'usage des équipements "
+        "et des comptes utilisateurs.", "body"))
+    story.append(para(
+        "Le prestataire ne peut être tenu responsable des conséquences liées à :",
+        "body"))
+    story.append(bullet_item("Mots de passe faibles ou partagés."))
+    story.append(bullet_item("Absence de mesures de sécurité recommandées."))
+    story.append(bullet_item("Mauvaise utilisation des outils et équipements."))
+    story.append(para(
+        "Le client s'engage à collaborer activement avec le prestataire en "
+        "fournissant les accès et informations nécessaires.", "body"))
+    story.append(para(
+        "Le client garantit un accès technique suffisant aux équipements "
+        "et systèmes.", "body"))
+
+    # §6 HONORAIRES ET FRAIS
+    story.append(section(6, "Honoraires et frais"))
+    tarif = data.get("tarif_horaire", 81.25)
+    story.append(para(
+        f"Les prestations sont facturées sur base d'un tarif horaire de "
+        f"<b>{tarif:.2f} € HTVA</b>. La facturation est réalisée sur base "
+        "du temps réellement presté (à la minute).", "body"))
+    if data.get("installation_poste"):
+        story.append(para(
+            f"Installation d'un nouveau poste : "
+            f"<b>{data['installation_poste']:.2f} € HTVA</b>.", "body"))
+    if data.get("creation_user_prix"):
+        story.append(para(
+            f"Création d'un nouvel utilisateur : "
+            f"<b>{data['creation_user_prix']:.2f} € HTVA</b>.", "body"))
+
+    story.append(sp(4))
+    story.append(subsection("Conditions de paiement"))
+    story.append(para(
+        "Les factures sont payables dans un délai de <b>15 jours</b> à compter "
+        "de leur date d'émission.", "body"))
+    story.append(para(
+        "En cas de non-paiement persistant malgré rappel, le prestataire se "
+        "réserve le droit de suspendre les interventions après notification "
+        "préalable.", "body"))
+
+    # §7 DURÉE ET RÉSILIATION
+    story.append(section(7, "Durée et résiliation"))
+    duree = data.get("duree", "indeterminee")
+    if duree == "indeterminee":
+        story.append(para(
+            "Le présent contrat est conclu pour une durée indéterminée. "
+            "Il est renouvelé par tacite reconduction.", "body"))
+    else:
+        duree_texte = data.get("duree_texte", "à convenir")
+        story.append(para(
+            f"Le présent contrat est conclu pour une durée déterminée de "
+            f"<b>{duree_texte}</b>, renouvelable par tacite reconduction.",
+            "body"))
+    story.append(para(
+        "Chaque partie peut résilier le contrat moyennant un préavis d'un (1) mois, "
+        "notifié par écrit, sans préjudice des prestations déjà réalisées.", "body"))
+
+    # §8 RESPONSABILITÉ
+    story.append(section(8, "Responsabilité"))
+    story.append(para(
+        "Le prestataire ne pourra être tenu responsable des dommages indirects, "
+        "pertes de données ou interruptions d'activité. Sa responsabilité est "
+        "limitée au montant des honoraires facturés sur la période concernée.",
+        "body"))
+
+    # §9 CONFIDENTIALITÉ
+    story.append(section(9, "Confidentialité"))
+    story.append(para(
+        "Le prestataire est tenu à une obligation de confidentialité renforcée "
+        "concernant l'ensemble des informations auxquelles il a accès dans le "
+        "cadre de la présente mission. Cette obligation perdure après la fin "
+        "du contrat.", "body"))
+
+    # §10 DROIT APPLICABLE
+    story.append(section(10, "Droit applicable et juridiction compétente"))
+    story.append(para(
+        "La présente convention est soumise au droit belge. En cas de litige, "
+        "les parties s'engagent à recourir préalablement à la médiation. "
+        "À défaut d'accord, les tribunaux de l'arrondissement judiciaire de "
+        "Bruxelles seront seuls compétents.", "body"))
+
+    # ── Notes ──
+    if data.get("notes"):
+        story.append(section("N", "Notes et conditions particulières"))
+        story.append(para(data["notes"], "body"))
+
+    # ── Signatures ──
+    story.append(sp(10))
+    story.append(hr(color=SC_LGREY))
+    story.append(sign_block(
+        lieu=data.get("lieu", ""),
+        date_str=data.get("date_doc", ""),
+        client_nom=data["client"]["nom"],
+        client_fn=data["client"].get("representant", ""),
+    ))
+
+    # ── ANNEXE Grille tarifaire ──
+    story.append(PageBreak())
+    story.append(annex_banner("Grille tarifaire"))
+    story.append(sp(8))
+    _build_standard_annex(story, data, tarif)
+
+    doc.build(story, onFirstPage=fp, onLaterPages=lp)
+    return buf.getvalue()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  1e. LETTRE DE MISSION RÉSEAU / STARTER PACK PME
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _generate_reseau_lm(data: dict) -> bytes:
