@@ -3,12 +3,21 @@ SmartHub — Modèle Planning
 Créneaux prévisionnels + règles de récurrence.
 """
 import uuid
-from sqlalchemy import String, Text, Integer, DateTime, Date, ForeignKey, CheckConstraint
+import enum
+from sqlalchemy import String, Text, Integer, DateTime, Date, ForeignKey, CheckConstraint, Enum
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from ..core.database import Base
+
+
+class PlanningStatus(str, enum.Enum):
+    planned     = "planned"
+    in_progress = "in_progress"
+    done        = "done"
+    missed      = "missed"
+    overrun     = "overrun"
 
 
 class RecurrenceRule(Base):
@@ -39,8 +48,7 @@ class PlanningSlot(Base):
     start_at     : Mapped[DateTime]               = mapped_column(DateTime(timezone=True), nullable=False)
     duration_min : Mapped[int]                    = mapped_column(Integer, nullable=False)
 
-    # planned | in_progress | done | missed | overrun (ENUM côté Postgres)
-    status       : Mapped[str]                    = mapped_column(String(16), nullable=False, default="planned")
+    status       : Mapped[PlanningStatus]           = mapped_column(Enum(PlanningStatus, name="planning_status", create_type=False), nullable=False, default=PlanningStatus.planned)
     notes        : Mapped[str | None]             = mapped_column(Text)
 
     recurrence_rule_id   : Mapped[int | None]      = mapped_column(Integer, ForeignKey("recurrence_rules.id", ondelete="SET NULL"))
