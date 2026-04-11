@@ -19,6 +19,7 @@ from ..models.project import Project
 from ..models.timetrack import TimeSession
 from ..models.auth import User
 from ..auth import get_current_user
+import uuid as _uuid_mod
 
 router = APIRouter(prefix="/planning", tags=["planning"])
 
@@ -26,6 +27,18 @@ router = APIRouter(prefix="/planning", tags=["planning"])
 # ── Helpers ────────────────────────────────────────────────
 
 OVERRUN_RATIO = 1.15  # >115% du prévu => overrun
+
+
+def _to_uuid(val) -> Optional[UUID]:
+    """Convertit string → UUID, retourne None si invalide ou vide."""
+    if val is None:
+        return None
+    if isinstance(val, _uuid_mod.UUID):
+        return val
+    try:
+        return _uuid_mod.UUID(str(val))
+    except (ValueError, AttributeError):
+        return None
 
 
 def _aware(dt: datetime) -> datetime:
@@ -349,10 +362,10 @@ async def create_slot(
 
     slot = PlanningSlot(
         title              = title,
-        client_id          = data.get("client_id"),
-        dossier_id         = data.get("dossier_id"),
+        client_id          = _to_uuid(data.get("client_id")),
+        dossier_id         = _to_uuid(data.get("dossier_id")),
         context_type       = data.get("context_type") or "manuel",
-        context_id         = data.get("context_id"),
+        context_id         = _to_uuid(data.get("context_id")),
         context_ref        = data.get("context_ref"),
         start_at           = start_at,
         duration_min       = duration_min,
