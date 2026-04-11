@@ -76,6 +76,13 @@ CREATE TRIGGER set_updated_at_planning
     BEFORE UPDATE ON planning_slots
     FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
 
+-- ── Google Calendar sync ──────────────────────────────────
+ALTER TABLE planning_slots
+    ADD COLUMN IF NOT EXISTS gcal_event_id VARCHAR(255);
+
+CREATE INDEX IF NOT EXISTS idx_planning_gcal
+    ON planning_slots(gcal_event_id);
+
 -- ── Lien depuis time_sessions ─────────────────────────────
 ALTER TABLE time_sessions
     ADD COLUMN IF NOT EXISTS planning_slot_id UUID

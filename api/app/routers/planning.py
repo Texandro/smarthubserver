@@ -98,6 +98,7 @@ def _slot_dict(
         "recurrence_parent_id": str(slot.recurrence_parent_id) if slot.recurrence_parent_id else None,
         "actual_session_id":    str(slot.actual_session_id) if slot.actual_session_id else None,
         "actual_duration_min":  slot.actual_duration_min,
+        "gcal_event_id":        slot.gcal_event_id,
         "_is_occurrence":       is_occurrence,
         "_occurrence_of":       str(occurrence_of) if occurrence_of else None,
         "created_at":           _aware(slot.created_at).isoformat() if slot.created_at else None,
@@ -358,6 +359,7 @@ async def create_slot(
         status             = "planned",
         notes              = data.get("notes"),
         recurrence_rule_id = rule_id,
+        gcal_event_id      = data.get("gcal_event_id"),
         created_by         = user.id,
     )
     db.add(slot)
@@ -445,7 +447,8 @@ async def update_slot(
 
     # Modification standard
     SIMPLE_FIELDS = {"title", "client_id", "dossier_id", "context_type",
-                     "context_id", "context_ref", "duration_min", "notes", "status"}
+                     "context_id", "context_ref", "duration_min", "notes", "status",
+                     "gcal_event_id"}
     for f in SIMPLE_FIELDS:
         if f in data:
             setattr(slot, f, data[f])

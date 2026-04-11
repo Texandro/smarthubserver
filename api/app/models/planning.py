@@ -48,6 +48,7 @@ class PlanningSlot(Base):
 
     actual_session_id    : Mapped[uuid.UUID | None]= mapped_column(UUID(as_uuid=True), ForeignKey("time_sessions.id", ondelete="SET NULL"))
     actual_duration_min  : Mapped[int | None]      = mapped_column(Integer)
+    gcal_event_id        : Mapped[str | None]      = mapped_column(String(255))
 
     created_at : Mapped[DateTime]                 = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at : Mapped[DateTime]                 = mapped_column(DateTime(timezone=True), server_default=func.now())
