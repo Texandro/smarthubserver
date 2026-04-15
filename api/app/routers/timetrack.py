@@ -8,7 +8,7 @@ from sqlalchemy import select, text, cast
 from sqlalchemy.dialects.postgresql import TIMESTAMP as PG_TIMESTAMP
 from sqlalchemy.orm import selectinload
 from uuid import UUID
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from typing import Optional
 
 from ..core.database import get_db
@@ -206,7 +206,13 @@ async def stop_active_session(
     if not session:
         raise HTTPException(status_code=404, detail="Aucune session active")
 
-    session.ended_at = datetime.now(timezone.utc)
+    # Si duration_minutes fourni, calculer ended_at à partir de started_at
+    dur_override = data.get("duration_minutes")
+    if dur_override and isinstance(dur_override, (int, float)) and dur_override > 0:
+        started = session.started_at if session.started_at.tzinfo else session.started_at.replace(tzinfo=timezone.utc)
+        session.ended_at = started + timedelta(minutes=int(dur_override))
+    else:
+        session.ended_at = datetime.now(timezone.utc)
 
     notes = data.get("notes") or data.get("work_done")
     if notes:
@@ -247,7 +253,12 @@ async def stop_session_by_id(
     if session.ended_at:
         raise HTTPException(status_code=400, detail="Session déjà terminée")
 
-    session.ended_at = data.get("ended_at") or datetime.now(timezone.utc)
+    dur_override = data.get("duration_minutes")
+    if dur_override and isinstance(dur_override, (int, float)) and dur_override > 0:
+        started = session.started_at if session.started_at.tzinfo else session.started_at.replace(tzinfo=timezone.utc)
+        session.ended_at = started + timedelta(minutes=int(dur_override))
+    else:
+        session.ended_at = data.get("ended_at") or datetime.now(timezone.utc)
 
     notes = data.get("notes") or data.get("work_done")
     if notes:
@@ -267,6 +278,77 @@ async def stop_session_by_id(
     client = await db.execute(select(Client).where(Client.id == session.client_id))
     c = client.scalar_one_or_none()
     return _session_dict(session, c.name if c else "")
+
+
+# ── PATCH / DELETE ────────────────────────────────────────
+
+@router.patch("/{session_id}", response_model=dict)
+async def update_session(
+    session_id: UUID,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Modifie une session existante (duration_minutes, notes, etc.)."""
+    result = await db.execute(
+        select(TimeSession)
+        .options(selectinload(TimeSession.report))
+        .where(TimeSession.id == session_id)
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session introuvable")
+
+    # Recalculer ended_at si duration_minutes change
+    dur = data.get("duration_minutes")
+    if dur is not None and isinstance(dur, (int, float)) and dur > 0:
+        started = session.started_at if session.started_at.tzinfo else session.started_at.replace(tzinfo=timezone.utc)
+        session.ended_at = started + timedelta(minutes=int(dur))
+
+    # Notes → mettre à jour ou créer le rapport
+    notes = data.get("notes") or data.get("work_done")
+    if notes is not None:
+        if session.report:
+            session.report.work_done = notes
+            if "work_pending" in data:
+                session.report.work_pending = data["work_pending"]
+            if "next_action" in data:
+                session.report.next_action = data["next_action"]
+        else:
+            report = SessionReport(
+                session_id   = session.id,
+                work_done    = notes,
+                work_pending = data.get("work_pending"),
+                next_action  = data.get("next_action"),
+            )
+            db.add(report)
+
+    # Champs simples
+    for f in ("activity", "description", "is_billable", "is_included_in_contract"):
+        if f in data:
+            setattr(session, f, data[f])
+
+    await db.flush()
+    await db.refresh(session)
+
+    client = await db.execute(select(Client).where(Client.id == session.client_id))
+    c = client.scalar_one_or_none()
+    return _session_dict(session, c.name if c else "")
+
+
+@router.delete("/{session_id}", status_code=204)
+async def delete_session(
+    session_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Supprime une session timetrack."""
+    result = await db.execute(select(TimeSession).where(TimeSession.id == session_id))
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session introuvable")
+    await db.delete(session)
+    await db.flush()
 
 
 # ── Liste sessions ─────────────────────────────────────────
